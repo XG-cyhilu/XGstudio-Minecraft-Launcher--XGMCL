@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>XGstudio Minecraft Launcher</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        width: 100%; height: 100%;
+        background: #1f1f1f;
+        overflow: hidden;
+        user-select: none;
+        font-family: "Microsoft YaHei", sans-serif;
+    }
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        -webkit-app-region: drag;
+        position: relative;
+    }
+    .logo {
+        width: 128px;
+        height: 128px;
+        margin-bottom: 8px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.45));
+    }
+    .title {
+        color: #fff;
+        font-size: 20px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+    .progress-wrap {
+        width: 320px;
+        height: 6px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 12px;
+    }
+    .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4FC3F7, #7ed3fa);
+        border-radius: 3px;
+        transition: width 0.25s ease;
+    }
+    .status {
+        color: #888;
+        font-size: 13px;
+        min-height: 18px;
+        letter-spacing: 0.3px;
+    }
+    .pct {
+        position: absolute;
+        right: 24px;
+        bottom: 20px;
+        color: #666;
+        font-size: 12px;
+        font-family: Consolas, monospace;
+    }
+    .version {
+        position: absolute;
+        left: 24px;
+        bottom: 20px;
+        color: #555;
+        font-size: 11px;
+    }
+</style>
+</head>
+<body>
+    <img class="logo" src="icon.png" alt="">
+    <div class="title">XGstudio Minecraft Launcher</div>
+    <div class="progress-wrap">
+        <div class="progress-bar" id="splashBar"></div>
+    </div>
+    <div class="status" id="splashStatus">正在加载 Core…</div>
+    <div class="version" id="splashVersion">VERSION xg26b01b   -XGstudio</div>
+    <div class="pct" id="splashPct">0%</div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000/api";
+        const bar    = document.getElementById("splashBar");
+        const status = document.getElementById("splashStatus");
+        const pctEl  = document.getElementById("splashPct");
+
+        let curPct = 0;
+        let targetPct = 0;
+        let rafId = null;
+
+        function setTarget(p) {
+            targetPct = p;
+        }
+        function setStatus(text) {
+            status.textContent = text;
+        }
+        function renderPct(v) {
+            let p = Math.max(0, Math.min(100, v));
+            bar.style.width = p + "%";
+            pctEl.textContent = Math.round(p) + "%";
+        }
+
+        // 平滑滚动进度
+        function tick() {
+            let diff = targetPct - curPct;
+            if (Math.abs(diff) < 0.5) {
+                curPct = targetPct;
+            } else {
+                curPct += diff * 0.15;
+            }
+            renderPct(curPct);
+            rafId = requestAnimationFrame(tick);
+        }
+        rafId = requestAnimationFrame(tick);
+
+        // ★ 外部调用：启动核心服务的检测
+        // ★ 阶段一：加载 Core（真检测 /api/theme/get）
+        window.__splashRunCore = async function() {
+            setStatus("正在加载 Core…");
+            setTarget(5);
+
+            const start = Date.now();
+            const timeout = 30000;
+            let fakeP = 5;
+
+            while (true) {
+                if (fakeP < 35) {
+                    fakeP += 0.6;
+                    setTarget(Math.min(fakeP, 35));
+                }
+
+                let ok = false;
+                const ctrl = new AbortController();
+                const killTimer = setTimeout(() => ctrl.abort(), 200);
+                try {
+                    let res = await fetch(`${API_URL}/theme/get`, {
+                        cache: "no-store",
+                        signal: ctrl.signal,
+                    });
+                    if (res.ok) {
+                        let d = await res.json();
+                        if (d.code === 200) ok = true;
+                    }
+                } catch (e) {
+                    // abort 或网络错误都当失败
+                } finally {
+                    clearTimeout(killTimer);
+                }
+
+                if (ok) {
+                    setTarget(40);
+                    setStatus("Core 已就绪");
+                    await new Promise(r => setTimeout(r, 200));
+                    return;
+                }
+
+                if (Date.now() - start > timeout) {
+                    setStatus("Core 加载超时，仍尝试启动界面…");
+                    setTarget(40);
+                    return;
+                }
+
+                await new Promise(r => setTimeout(r, 100));
+            }
+        };
+
+        // ★ 外部调用：加载 data
+        window.__splashRunData = async function() {
+            setStatus("正在加载 data…");
+            setTarget(60);
+            await new Promise(r => setTimeout(r, 500));
+        };
+
+        // ★ 外部调用：加载界面
+        window.__splashRunUi = async function() {
+            setStatus("正在加载界面…");
+            setTarget(90);
+            await new Promise(r => setTimeout(r, 1000));
+        };
+
+        // ★ 外部调用：完成
+        window.__splashDone = async function() {
+            setStatus("完成！");
+            setTarget(100);
+            await new Promise(r => setTimeout(r, 200));
+        };
+    </script>
+</body>
+</html>

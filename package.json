@@ -1,0 +1,41 @@
+{
+  "name": "XGstudio-Minecraft-Launcher",
+  "version": "2602.01.00",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "pack": "electron-builder --win --x64 --dir"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.xgstudio.xgmcl",
+    "productName": "XGMCL",
+    "directories": { "output": "build" },
+    "files": [
+      "main.js",
+      "index.html",
+      "splash.html",
+      "package.json",
+      "icon.png",
+      "XGMCL/data/i18n/**/*",
+      "XGMCL/data/lib/**/*"
+    ],
+    "win": {
+      "icon": "icon.ico"
+    },
+    "extraResources": [
+      { "from": "core.py", "to": "core.py" },
+      { "from": "launcher.py", "to": "launcher.py" },
+      { "from": "java_scan.py", "to": "java_scan.py" },
+      { "from": "server.py", "to": "server.py" },
+      { "from": "upversion.py", "to": "upversion.py" },
+      { "from": "XG-Core.exe", "to": "XG-Core.exe" },
+      { "from": "wiki_entries.json", "to": "wiki_entries.json" },
+      { "from": "boot_files", "to": "boot_files" }
+    ]
+  }
+}
