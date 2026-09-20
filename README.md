@@ -59,7 +59,7 @@ Currently in **beta**.
 
 ## License
 
-To be determined.
+MIT
 
 ---
 
