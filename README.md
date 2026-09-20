@@ -18,6 +18,7 @@ Currently in **beta**.
 - [Tech Stack](#tech-stack)
 - [Status](#status)
 - [License](#license)
+- [Credits](#Credits)
 
 ---
 
