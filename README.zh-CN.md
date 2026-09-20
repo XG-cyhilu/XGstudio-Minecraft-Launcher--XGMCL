@@ -59,7 +59,7 @@
 
 ## 许可证
 
-MIT(./LICENSE)
+MIT
 
 ---
 
