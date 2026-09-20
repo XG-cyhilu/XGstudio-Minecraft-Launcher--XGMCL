@@ -64,6 +64,9 @@ To be determined.
 
 ## Author
 
-**XG** — individual developer.
+**XG** — individual developer (Grade 9 student).
 
+## Credits
+
+- Mod Chinese name data is sourced from **Plain Craft Launcher** (by 龙腾猫跃).
 ---
