@@ -65,7 +65,7 @@ MIT
 
 ## Author
 
-**XG** — individual developer (Grade 9 student).
+**XG**
 
 ## Credits
 
