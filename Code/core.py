@@ -1,3 +1,23 @@
+"""
+XGstudio Minecraft Launcher (XGMCL)
+Copyright (C) 2026  XG-cyhliu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
+
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -89,6 +109,119 @@ PATH_DOWNLOAD_HIST = os.path.join(DOWNLOAD_DATA_DIR, "download.json")
 PATH_SERVER_CFG    = os.path.join(SETTING_ROOT, "server.json")
 ACCOUNT_PATH       = os.path.join(XGMCL_ROOT, "data", "xgmclp", "p.json")
 COLOR_PATH         = os.path.join(XGMCL_ROOT, "data", "color.json")
+
+# ====================== XGstudio 账号（注册表） ======================
+XG_REG_ROOT = None
+XG_REG_BASE = r"Software\XGstudio"
+XG_REG_YON = r"Software\XGstudio\YON_ON"
+XG_BCRYPT_ROUNDS = 12
+
+XG_REG_SESSION = r"Software\XGstudio\session"
+
+XG_SESSION = {
+    "logged_in": False,
+    "username": "",
+    "role": "",
+    "login_time": 0,
+}
+XG_SESSION_LOCK = threading.Lock()
+
+
+def xg_session_save(username: str, role: str, login_time: int):
+    if not HAS_WINREG:
+        return
+    import winreg as _wr
+    try:
+        key = _wr.CreateKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION)
+        val = f"{login_time}:{username}:{role or ''}"
+        _wr.SetValueEx(key, "", 0, _wr.REG_SZ, val)
+        _wr.CloseKey(key)
+    except Exception as e:
+        write_log("WARN", f"保存 XGstudio session 失败: {e}")
+
+
+def xg_session_load():
+    if not HAS_WINREG:
+        return None
+    import winreg as _wr
+    try:
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION)
+        val, _ = _wr.QueryValueEx(key, "")
+        _wr.CloseKey(key)
+        parts = str(val).split(":", 2)
+        if len(parts) != 3:
+            return None
+        ts = int(parts[0])
+        username = parts[1]
+        role = parts[2]
+        if not username or ts <= 0:
+            return None
+        return (username, role, ts)
+    except Exception:
+        return None
+
+
+def xg_session_clear():
+    if not HAS_WINREG:
+        return
+    import winreg as _wr
+    try:
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION,
+                         0, _wr.KEY_SET_VALUE)
+        _wr.DeleteValue(key, "")
+        _wr.CloseKey(key)
+    except Exception:
+        pass
+
+
+def xg_read_account():
+    if not HAS_WINREG:
+        return None
+    import winreg as _wr
+    try:
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_BASE)
+    except OSError:
+        return None
+
+    try:
+        username, _ = _wr.QueryValueEx(key, "用户名")
+        bcrypt_hash, _ = _wr.QueryValueEx(key, "bcrypt_hash")
+        try:
+            raw_mac, _ = _wr.QueryValueEx(key, "raw_mac")
+        except OSError:
+            raw_mac = ""
+        try:
+            role, _ = _wr.QueryValueEx(key, "XGstu职位")
+        except OSError:
+            role = None
+        _wr.CloseKey(key)
+        return {
+            "username": str(username).strip(),
+            "hash": str(bcrypt_hash).encode("utf-8"),
+            "role": role,
+            "raw_mac": raw_mac,
+        }
+    except Exception:
+        try:
+            _wr.CloseKey(key)
+        except Exception:
+            pass
+        return None
+
+
+def xg_yon_on():
+    if not HAS_WINREG:
+        return False
+    import winreg as _wr
+    try:
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_YON)
+        val, _ = _wr.QueryValueEx(key, "")
+        _wr.CloseKey(key)
+        return str(val).strip().lower() == "yes"
+    except OSError:
+        return False
+
+
 # ====================== FastAPI App ======================
 app = FastAPI(title="XGMCL Core Service")
 
@@ -496,139 +629,6 @@ def save_theme(theme):
                 merged[k] = theme[k]
     safe_save_json(COLOR_PATH, merged)
     return merged
-
-# ====================== XGstudio 账号（注册表） ======================
-XG_REG_ROOT = None
-XG_REG_BASE = r"Software\XGstudio"
-XG_REG_YON = r"Software\XGstudio\YON_ON"
-XG_BCRYPT_ROUNDS = 12  # 只在需要重新 hash 时用
-
-# XGstudio session 注册表路径
-XG_REG_SESSION = r"Software\XGstudio\session"
-
-# 登录态：进程内存 + 注册表持久化（方案 B）
-XG_SESSION = {
-    "logged_in": False,
-    "username": "",
-    "role": "",
-    "login_time": 0,
-}
-XG_SESSION_LOCK = threading.Lock()
-
-
-def xg_session_save(username: str, role: str, login_time: int):
-    """把登录态写进注册表，供下次启动恢复"""
-    if not HAS_WINREG:
-        return
-    import winreg as _wr
-    try:
-        key = _wr.CreateKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION)
-        val = f"{login_time}:{username}:{role or ''}"
-        _wr.SetValueEx(key, "", 0, _wr.REG_SZ, val)
-        _wr.CloseKey(key)
-    except Exception as e:
-        write_log("WARN", f"保存 XGstudio session 失败: {e}")
-
-
-def xg_session_load():
-    """从注册表恢复登录态。返回 (username, role, login_time) 或 None"""
-    if not HAS_WINREG:
-        return None
-    import winreg as _wr
-    try:
-        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION)
-        val, _ = _wr.QueryValueEx(key, "")
-        _wr.CloseKey(key)
-        parts = str(val).split(":", 2)
-        if len(parts) != 3:
-            return None
-        ts = int(parts[0])
-        username = parts[1]
-        role = parts[2]
-        if not username or ts <= 0:
-            return None
-        return (username, role, ts)
-    except Exception:
-        return None
-
-
-def xg_session_clear():
-    """清除注册表 session"""
-    if not HAS_WINREG:
-        return
-    import winreg as _wr
-    try:
-        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_SESSION,
-                         0, _wr.KEY_SET_VALUE)
-        _wr.DeleteValue(key, "")
-        _wr.CloseKey(key)
-    except Exception:
-        pass
-
-
-def _xg_open_base():
-    """打开 HKCU\Software\XGstudio，不存在返回 None"""
-    if not HAS_WINREG:
-        return None
-    import winreg as _wr
-    try:
-        return _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_BASE)
-    except OSError:
-        return None
-
-
-def xg_read_account():
-    """
-    读注册表里的账号信息。
-    返回 dict 或 None：
-      {username, hash(bytes), role(str/None), raw_mac(str)}
-    """
-    if not HAS_WINREG:
-        return None
-    import winreg as _wr
-    try:
-        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_BASE)
-    except OSError:
-        return None
-
-    try:
-        username, _ = _wr.QueryValueEx(key, "用户名")
-        bcrypt_hash, _ = _wr.QueryValueEx(key, "bcrypt_hash")
-        try:
-            raw_mac, _ = _wr.QueryValueEx(key, "raw_mac")
-        except OSError:
-            raw_mac = ""
-        try:
-            role, _ = _wr.QueryValueEx(key, "XGstu职位")
-        except OSError:
-            role = None
-        _wr.CloseKey(key)
-        return {
-            "username": str(username).strip(),
-            "hash": str(bcrypt_hash).encode("utf-8"),
-            "role": role,
-            "raw_mac": raw_mac,
-        }
-    except Exception:
-        try:
-            _wr.CloseKey(key)
-        except Exception:
-            pass
-        return None
-
-
-def xg_yon_on():
-    """读 YON_ON 标志（是否已注册）"""
-    if not HAS_WINREG:
-        return False
-    import winreg as _wr
-    try:
-        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, XG_REG_YON)
-        val, _ = _wr.QueryValueEx(key, "")
-        _wr.CloseKey(key)
-        return str(val).strip().lower() == "yes"
-    except OSError:
-        return False
 
 # ====================== 初始化 ======================
 def init_xgmcl_dir():
@@ -1750,6 +1750,9 @@ APPEARANCE_DEFAULTS = {
     "card_alpha": 100,
     "card_dim": 20,
     "show_quickbar": True,
+    "nav_icon_color": "",
+    "nav_icon_active_color": "",
+    "nav_icon_hover_color": "",
 }
 
 def load_appearance():
@@ -1781,7 +1784,10 @@ def appearance_save(glass: int = -1, liquid: int = -1,
                     global_bg_blur: int = -1,
                     card_alpha: int = -1,
                     card_dim: int = -1,
-                    show_quickbar: int = -1):
+                    show_quickbar: int = -1,
+                    nav_icon_color: str = "__keep__",
+                    nav_icon_active_color: str = "__keep__",
+                    nav_icon_hover_color: str = "__keep__"):
     """
     保存外观设置。
     - 用 -1 / "__keep__" 做哨兵
@@ -1812,6 +1818,13 @@ def appearance_save(glass: int = -1, liquid: int = -1,
     if card_alpha >= 0:     cfg["card_alpha"] = max(0, min(100, card_alpha))
     if card_dim >= 0:       cfg["card_dim"] = max(0, min(100, card_dim))
     if show_quickbar >= 0:  cfg["show_quickbar"] = bool(show_quickbar)
+
+    if nav_icon_color != "__keep__":
+        cfg["nav_icon_color"] = nav_icon_color or ""
+    if nav_icon_active_color != "__keep__":
+        cfg["nav_icon_active_color"] = nav_icon_active_color or ""
+    if nav_icon_hover_color != "__keep__":
+        cfg["nav_icon_hover_color"] = nav_icon_hover_color or ""
 
     _set_cat("btn_alpha_primary",   btn_alpha_primary)
     _set_cat("btn_alpha_secondary", btn_alpha_secondary)
@@ -2826,6 +2839,32 @@ def version_open_folder(version_name: str, root_id: str = ""):
         return {"code": 500, "msg": f"打开失败: {e}"}
 
 
+@app.get("/api/version/mods/read_file")
+def version_mods_read_file(version_name: str, filename: str, root_id: str = ""):
+    """读 mods 目录下某个文件的二进制内容（给前端算 hash 用）"""
+    from fastapi.responses import FileResponse
+    target = get_root_by_id(root_id)
+    if not target:
+        return {"code": 400, "msg": "没有可用的游戏目录"}
+    if not check_root_valid(target["path"]):
+        return {"code": 400, "msg": "目录已失效"}
+
+    if not filename or ("/" in filename) or ("\\" in filename) or (".." in filename):
+        return {"code": 400, "msg": "非法文件名"}
+
+    isolated = get_version_isolated(target["path"], version_name)
+    if isolated:
+        mods_dir = os.path.join(target["path"], "versions", version_name, "mods")
+    else:
+        mods_dir = os.path.join(target["path"], "mods")
+
+    full = os.path.join(mods_dir, filename)
+    if not os.path.isfile(full):
+        return {"code": 404, "msg": f"文件不存在: {filename}"}
+
+    return FileResponse(full, media_type="application/octet-stream")
+
+
 @app.get("/api/version/mods/import")
 def version_mods_import(version_name: str, paths: str = "",
                         overwrite: int = 0, root_id: str = ""):
@@ -3352,99 +3391,6 @@ def version_delete(version_name: str, root_id: str = ""):
         "freed_bytes": size,
     }
 
-# ====================== API: XGstudio 账号 ======================
-@app.get("/api/xg/status")
-def xg_status():
-    """当前登录状态 + 本机注册状态"""
-    with XG_SESSION_LOCK:
-        logged = bool(XG_SESSION["logged_in"])
-        username = XG_SESSION["username"] if logged else ""
-        role = XG_SESSION["role"] if logged else ""
-
-    acc = xg_read_account()
-    return {
-        "code": 200,
-        "registered": acc is not None and xg_yon_on(),
-        "logged_in": logged,
-        "username": username,
-        "role": role,
-    }
-
-
-@app.get("/api/xg/login")
-def xg_login(username: str, password: str):
-    """
-    登录 XGstudio 账号。
-    读注册表 → 比对用户名 + bcrypt → 写内存 session。
-    """
-    with XG_SESSION_LOCK:
-        if XG_SESSION["logged_in"]:
-            return {"code": 400, "msg": "已登录，请先退出"}
-
-    if not xg_yon_on():
-        return {"code": 400, "msg": "本机未注册 XGstudio 账号"}
-
-    acc = xg_read_account()
-    if not acc:
-        return {"code": 400, "msg": "读取注册表失败"}
-
-    if username.strip() != acc["username"]:
-        return {"code": 400, "msg": "用户名或密码错误"}
-
-    if not HAS_BCRYPT:
-        write_log("ERROR", "bcrypt 未安装，XGstudio 登录不可用")
-        return {"code": 500, "msg": "服务端缺少 bcrypt 依赖"}
-    try:
-        ok = bcrypt.checkpw(password.encode("utf-8"), acc["hash"])
-    except Exception as e:
-        write_log("ERROR", f"bcrypt 校验异常: {e}")
-        return {"code": 400, "msg": "用户名或密码错误"}
-
-    if not ok:
-        return {"code": 400, "msg": "用户名或密码错误"}
-
-    _now = int(time.time())
-    with XG_SESSION_LOCK:
-        XG_SESSION["logged_in"] = True
-        XG_SESSION["username"] = acc["username"]
-        XG_SESSION["role"] = acc["role"] or ""
-        XG_SESSION["login_time"] = _now
-
-    # ★ 写注册表，下次启动自动恢复
-    xg_session_save(acc["username"], acc["role"] or "", _now)
-
-    write_log("INFO", f"XGstudio 登录成功: {acc['username']} (职位={acc['role'] or '无'})")
-    return {
-        "code": 200,
-        "msg": "登录成功",
-        "username": acc["username"],
-        "role": acc["role"] or "",
-    }
-
-
-@app.get("/api/xg/logout")
-def xg_logout():
-    with XG_SESSION_LOCK:
-        old = XG_SESSION["username"]
-        XG_SESSION["logged_in"] = False
-        XG_SESSION["username"] = ""
-        XG_SESSION["role"] = ""
-        XG_SESSION["login_time"] = 0
-    xg_session_clear()   # ★ 清注册表 session
-    if old:
-        write_log("INFO", f"XGstudio 退出登录: {old}")
-    return {"code": 200, "msg": "已退出"}
-
-
-@app.get("/api/xg/devmode")
-def xg_devmode():
-    """
-    开发模式是否可用（已登录 = 可用）。
-    UI 用来控制 data-dev-only 元素的显隐。
-    """
-    with XG_SESSION_LOCK:
-        ok = bool(XG_SESSION["logged_in"])
-    return {"code": 200, "devmode": ok}
 
 # ====================== API: 服务端（直接开服） ======================
 def load_server_cfg():
@@ -3845,12 +3791,13 @@ def _save_mod_cache(ver_dir, cache):
 
 
 # ====================== Modrinth OAuth 配置 ======================
-MODRINTH_CLIENT_ID = "MODRINTH_OAUTH_ID"
-MODRINTH_CLIENT_SECRET = "MODRINTH_OAUTH_SECRET"
-MODRINTH_REDIRECT_URI = "MODRINTH_REDIRECT_URI"
+MODRINTH_CLIENT_ID = "MODRINTH_CLIENT_ID"
+MODRINTH_CLIENT_SECRET = "MODRINTH_CLIENT_SECRET = "
 
-MODRINTH_OAUTH_AUTHORIZE = "MODRINTH_OAUTH_AUTHORIZE"
-MODRINTH_OAUTH_TOKEN     = "MODRINTH_OAUTH_TOKEN"
+MODRINTH_REDIRECT_URI = "http://127.0.0.1:8000/api/modrinth/oauth/callback"
+
+MODRINTH_OAUTH_AUTHORIZE = "https://modrinth.com/auth/authorize"
+MODRINTH_OAUTH_TOKEN     = "https://api.modrinth.com/_internal/oauth/token"
 
 MODRINTH_SCOPES = [
     "USER_READ",
@@ -4218,6 +4165,8 @@ def modrinth_install_api(url: str, filename: str = "", sha1: str = "",
         threads=1,
     )
 
+    # ★ 从请求里拿 project_id 等信息（前端要传）
+    #   为了兼容旧调用，这里做成可选
     t = threading.Thread(
         target=_modrinth_install_worker,
         args=(task_id, url, target, sha1, size),
@@ -4227,6 +4176,124 @@ def modrinth_install_api(url: str, filename: str = "", sha1: str = "",
 
     write_log("INFO", f"Modrinth 下载: {filename} → {target} (task_id={task_id})")
     return {"code": 200, "msg": "下载已开始", "task_id": task_id, "target": target}
+
+
+def _write_mod_meta(version_dir, project_id, slug, title, title_cn,
+                    version_id, version_number, download_url, filename,
+                    dependencies=None, source="modrinth"):
+    """
+    写单个 mod 的元数据到 <version_dir>/.xgmcl/mods/<project_id>.json
+    """
+    if not version_dir or not project_id:
+        return
+    try:
+        meta_dir = os.path.join(version_dir, ".xgmcl", "mods")
+        os.makedirs(meta_dir, exist_ok=True)
+        meta_path = os.path.join(meta_dir, f"{project_id}.json")
+        meta = {
+            "project_id":     project_id,
+            "slug":           slug or "",
+            "title":          title or "",
+            "title_cn":       title_cn or "",
+            "version_id":     version_id or "",
+            "version_number": version_number or "",
+            "download_url":   download_url or "",
+            "filename":       filename or "",
+            "dependencies":   dependencies or [],
+            "source":         source,
+            "updated_at":     int(time.time()),
+        }
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        write_log("WARN", f"写 mod 元数据失败 {project_id}: {e}")
+
+
+def _auto_write_meta_after_download(target):
+    """
+    下载完成后，用 SHA-512 反查 Modrinth 拿信息，写元数据。
+    放在 <mods 目录>/.xgmcl/mods/<project_id>.json
+    """
+    if not target or not os.path.exists(target):
+        return
+
+    # 算 SHA-512
+    import hashlib as _hl
+    h = _hl.sha512()
+    with open(target, "rb") as f:
+        while True:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            h.update(chunk)
+    sha512 = h.hexdigest()
+
+    # 查 Modrinth
+    try:
+        r = requests.get(
+            f"{MODRINTH_API}/version_file/{sha512}",
+            params={"algorithm": "sha512"},
+            headers=_modrinth_headers(),
+            timeout=20,
+        )
+        if r.status_code != 200:
+            write_log("INFO", f"哈希反查无结果（可能是非 Modrinth 文件）: {os.path.basename(target)}")
+            return
+        v = r.json()
+    except Exception as e:
+        write_log("WARN", f"哈希反查请求失败: {e}")
+        return
+
+    pid = v.get("project_id", "")
+    if not pid:
+        return
+
+    # 查项目信息拿 title / icon / slug
+    title = slug = icon_url = ""
+    try:
+        pr = requests.get(
+            f"{MODRINTH_API}/project/{pid}",
+            headers=_modrinth_headers(),
+            timeout=15,
+        )
+        if pr.status_code == 200:
+            p = pr.json()
+            title = p.get("title", "")
+            slug = p.get("slug", "")
+            icon_url = p.get("icon_url", "")
+    except Exception:
+        pass
+
+    wiki = load_wiki_entries()
+    title_cn = wiki.get((slug or "").lower(), "")
+
+    files = v.get("files", []) or []
+    primary = None
+    for f in files:
+        if f.get("primary"):
+            primary = f
+            break
+    if primary is None and files:
+        primary = files[0]
+
+    # 目标 mods 目录 = target 所在目录
+    mods_dir = os.path.dirname(target)
+    # version_dir = mods 目录的父目录
+    version_dir = os.path.dirname(mods_dir)
+
+    _write_mod_meta(
+        version_dir=version_dir,
+        project_id=pid,
+        slug=slug,
+        title=title,
+        title_cn=title_cn,
+        version_id=v.get("id", ""),
+        version_number=v.get("version_number", ""),
+        download_url=(primary or {}).get("url", ""),
+        filename=os.path.basename(target),
+        dependencies=v.get("dependencies", []) or [],
+    )
+    write_log("INFO", f"已写入 mod 元数据: {title or pid} → .xgmcl/mods/{pid}.json")
 
 
 def _modrinth_install_worker(task_id, url, target, sha1, size):
@@ -4274,12 +4341,350 @@ def _modrinth_install_worker(task_id, url, target, sha1, size):
         _set("active", False)
         write_log("INFO", f"Modrinth 下载完成: {target}")
 
+        # ★ 下载完成后，用 SHA-512 反查 Modrinth，写元数据
+        try:
+            _auto_write_meta_after_download(target)
+        except Exception as e:
+            write_log("WARN", f"自动写元数据失败: {e}")
+
     except Exception as e:
         _set("error", str(e))
         _set("active", False)
         write_log("ERROR", f"Modrinth 下载失败: {e}")
     finally:
         _finalize_task_history(task_id)
+
+
+# ====================== API: 依赖树查询 ======================
+@app.post("/api/modrinth/dep_tree")
+async def modrinth_dep_tree(request: Request):
+    """
+    批量递归查依赖树。
+    请求体：{"project_ids": ["id1", ...], "max_depth": 3}
+    返回：
+    {
+      "code": 200,
+      "nodes": {project_id: {title, title_cn, icon_url, slug, ...}},
+      "edges": {project_id: [{dep_project_id, dependency_type}, ...]},
+      "missing": [project_id...]   # Modrinth 上查不到的
+    }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        return {"code": 400, "msg": f"请求体不是合法 JSON: {e}"}
+
+    root_ids = body.get("project_ids", [])
+    max_depth = int(body.get("max_depth", 3))
+    if max_depth < 1:
+        max_depth = 1
+    if max_depth > 3:
+        max_depth = 3
+
+    if not isinstance(root_ids, list) or not root_ids:
+        return {"code": 200, "nodes": {}, "edges": {}, "missing": []}
+
+    # 去重
+    root_ids = list({str(x) for x in root_ids if x})
+    wiki = load_wiki_entries()
+
+    nodes = {}        # project_id -> info
+    edges = {}        # project_id -> [dep, ...]
+    missing = set()   # 查不到的
+
+    # BFS 按层查
+    current_layer = set(root_ids)
+    all_seen = set()
+    for depth in range(max_depth):
+        # 本层要查的（去掉已查过的）
+        to_query = [pid for pid in current_layer if pid not in all_seen]
+        all_seen.update(to_query)
+        if not to_query:
+            break
+
+        # 批量查项目信息
+        for i in range(0, len(to_query), 50):
+            batch = to_query[i:i+50]
+            try:
+                pr = requests.get(
+                    f"{MODRINTH_API}/projects",
+                    params={"ids": json.dumps(batch)},
+                    headers=_modrinth_headers(),
+                    timeout=20,
+                )
+                if pr.status_code == 200:
+                    for p in pr.json():
+                        pid = p.get("id", "")
+                        if not pid:
+                            continue
+                        slug = (p.get("slug") or "").lower()
+                        nodes[pid] = {
+                            "project_id":   pid,
+                            "slug":         p.get("slug", ""),
+                            "title":        p.get("title", ""),
+                            "title_cn":     wiki.get(slug, ""),
+                            "icon_url":     p.get("icon_url", ""),
+                            "description":  p.get("description", ""),
+                            "project_type": p.get("project_type", ""),
+                        }
+                else:
+                    for pid in batch:
+                        missing.add(pid)
+            except Exception as e:
+                write_log("WARN", f"查项目失败（批 {i}）: {e}")
+                for pid in batch:
+                    missing.add(pid)
+
+        # 对每个 pid 拿最新版本的 dependencies
+        # 用线程池并发查，不然 99 个串行要等几分钟
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        next_layer = set()
+
+        def _fetch_one_project_versions(pid):
+            """查一个项目的最新版本依赖，返回 (pid, [deps])"""
+            try:
+                vr = requests.get(
+                    f"{MODRINTH_API}/project/{pid}/version",
+                    headers=_modrinth_headers(),
+                    timeout=20,
+                )
+                if vr.status_code != 200:
+                    return (pid, [])
+                versions = vr.json()
+                if not versions:
+                    return (pid, [])
+                latest = versions[0]
+                deps = latest.get("dependencies", []) or []
+                out = []
+                for d in deps:
+                    dep_pid = d.get("project_id")
+                    if not dep_pid:
+                        continue
+                    out.append({
+                        "project_id":      dep_pid,
+                        "dependency_type": d.get("dependency_type", "required"),
+                    })
+                return (pid, out)
+            except Exception as e:
+                write_log("WARN", f"查依赖失败 {pid}: {e}")
+                return (pid, [])
+
+        # 只查有 nodes 的
+        query_pids = [p for p in to_query if p in nodes]
+        if query_pids:
+            with ThreadPoolExecutor(max_workers=16) as pool:
+                futures = {pool.submit(_fetch_one_project_versions, pid): pid for pid in query_pids}
+                for fut in as_completed(futures):
+                    try:
+                        pid, out = fut.result()
+                    except Exception as e:
+                        pid = futures[fut]
+                        out = []
+                    edges[pid] = out
+                    for d in out:
+                        if d["dependency_type"] in ("required", "embedded"):
+                            next_layer.add(d["project_id"])
+
+        current_layer = next_layer
+        if not current_layer:
+            break
+
+    return {
+        "code": 200,
+        "nodes": nodes,
+        "edges": edges,
+        "missing": list(missing),
+    }
+
+
+# ====================== API: Mod 元数据读写 ======================
+def _mod_meta_dir(root_path, version_name):
+    """返回 <版本目录>/.xgmcl/mods/ 路径"""
+    return os.path.join(root_path, "versions", version_name, ".xgmcl", "mods")
+
+
+@app.get("/api/version/mods/meta_list")
+def version_mods_meta_list(version_name: str, root_id: str = ""):
+    """
+    列出某个版本下所有 .xgmcl/mods/*.json 的内容。
+    返回 {"code": 200, "data": {project_id: meta_dict}}
+    """
+    target = get_root_by_id(root_id)
+    if not target:
+        return {"code": 400, "msg": "没有可用的游戏目录"}
+    if not check_root_valid(target["path"]):
+        return {"code": 400, "msg": "目录已失效"}
+
+    meta_dir = _mod_meta_dir(target["path"], version_name)
+    result = {}
+    if not os.path.isdir(meta_dir):
+        return {"code": 200, "data": result}
+
+    for fn in os.listdir(meta_dir):
+        if not fn.endswith(".json"):
+            continue
+        full = os.path.join(meta_dir, fn)
+        if not os.path.isfile(full):
+            continue
+        try:
+            with open(full, "r", encoding="utf-8") as f:
+                d = json.load(f)
+            pid = d.get("project_id") or fn[:-5]
+            result[pid] = d
+        except Exception as e:
+            write_log("WARN", f"读元数据失败 {fn}: {e}")
+    return {"code": 200, "data": result}
+
+
+@app.post("/api/version/mods/meta_save")
+async def version_mods_meta_save(request: Request):
+    """
+    写入一批 mod 元数据。
+    请求体：{"version_name": "...", "root_id": "...", "metas": {project_id: {...}}}
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        return {"code": 400, "msg": f"请求体不是合法 JSON: {e}"}
+
+    version_name = body.get("version_name", "")
+    root_id = body.get("root_id", "")
+    metas = body.get("metas", {})
+
+    if not version_name:
+        return {"code": 400, "msg": "version_name 不能为空"}
+    if not isinstance(metas, dict):
+        return {"code": 400, "msg": "metas 必须是对象"}
+
+    target = get_root_by_id(root_id)
+    if not target:
+        return {"code": 400, "msg": "没有可用的游戏目录"}
+    if not check_root_valid(target["path"]):
+        return {"code": 400, "msg": "目录已失效"}
+
+    meta_dir = _mod_meta_dir(target["path"], version_name)
+    os.makedirs(meta_dir, exist_ok=True)
+
+    saved = 0
+    for pid, meta in metas.items():
+        if not pid or not isinstance(meta, dict):
+            continue
+        try:
+            path = os.path.join(meta_dir, f"{pid}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, ensure_ascii=False, indent=2)
+            saved += 1
+        except Exception as e:
+            write_log("WARN", f"写元数据失败 {pid}: {e}")
+
+    write_log("INFO", f"写入 mod 元数据: {saved} 条 → {version_name}")
+    return {"code": 200, "msg": f"已保存 {saved} 条", "saved": saved}
+
+
+# ====================== API: Modrinth 哈希反查 ======================
+@app.post("/api/modrinth/version_from_hash")
+async def modrinth_version_from_hash(request: Request):
+    """
+    批量用 SHA-512 反查 Modrinth 版本信息。
+    请求体：{"hashes": ["sha512_1", "sha512_2", ...]}
+    返回：{"code": 200, "data": {hash: {project_id, slug, title, title_cn,
+            icon_url, version_id, version_number, download_url,
+            dependencies: [...]}}}
+    查不到的 hash 不会出现在 data 里。
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        return {"code": 400, "msg": f"请求体不是合法 JSON: {e}"}
+
+    hashes = body.get("hashes", [])
+    if not isinstance(hashes, list) or not hashes:
+        return {"code": 200, "data": {}}
+
+    # 去重 + 限长
+    hashes = list({h.lower() for h in hashes if isinstance(h, str) and len(h) == 128})
+    if not hashes:
+        return {"code": 200, "data": {}}
+
+    # 分批查，每批 32 个
+    BATCH = 32
+    result_map = {}
+    wiki = load_wiki_entries()
+
+    for i in range(0, len(hashes), BATCH):
+        batch = hashes[i:i + BATCH]
+        try:
+            r = requests.post(
+                f"{MODRINTH_API}/version_files",
+                json={
+                    "hashes": batch,
+                    "algorithm": "sha512",
+                },
+                headers=_modrinth_headers(),
+                timeout=20,
+            )
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            write_log("WARN", f"哈希反查失败（批 {i//BATCH}）: {e}")
+            continue
+
+        # data 是 {hash: version_obj}
+        if not isinstance(data, dict):
+            continue
+
+        # 收集这批里所有 project_id，用于批量查项目信息
+        pids = []
+        for h, v in data.items():
+            pid = v.get("project_id", "")
+            if pid:
+                pids.append(pid)
+
+        proj_info = {}
+        if pids:
+            try:
+                pr = requests.get(
+                    f"{MODRINTH_API}/projects",
+                    params={"ids": json.dumps(list(set(pids)))},
+                    headers=_modrinth_headers(),
+                    timeout=20,
+                )
+                if pr.status_code == 200:
+                    for p in pr.json():
+                        proj_info[p.get("id", "")] = p
+            except Exception as e:
+                write_log("WARN", f"批量查项目信息失败: {e}")
+
+        for h, v in data.items():
+            pid = v.get("project_id", "")
+            p = proj_info.get(pid, {})
+            slug = (p.get("slug") or "").lower()
+            # 找主文件
+            files = v.get("files", []) or []
+            primary = None
+            for f in files:
+                if f.get("primary"):
+                    primary = f
+                    break
+            if primary is None and files:
+                primary = files[0]
+
+            result_map[h] = {
+                "project_id":     pid,
+                "slug":           p.get("slug", ""),
+                "title":          p.get("title", ""),
+                "title_cn":       wiki.get(slug, ""),
+                "icon_url":       p.get("icon_url", ""),
+                "description":    p.get("description", ""),
+                "version_id":     v.get("id", ""),
+                "version_number": v.get("version_number", ""),
+                "download_url":   (primary or {}).get("url", ""),
+                "filename":       (primary or {}).get("filename", ""),
+                "dependencies":   v.get("dependencies", []) or [],
+            }
+
+    return {"code": 200, "data": result_map}
 
 
 # ====================== API: Modrinth OAuth ======================
@@ -4650,8 +5055,8 @@ def fabric_install(version_name: str, mc_version_id: str, loader_version: str,
 
 # ====================== API: LittleSkin OAuth ======================
 LITTLESKIN_CLIENT_ID = "LITTLESKIN_CLIENT_ID"
-LITTLESKIN_OAUTH_BASE = "LITTLESKIN_OAUTH_BASE"
-LITTLESKIN_YGGDRASIL_BASE = "LITTLESKIN_YGGDRASIL_BASE"
+LITTLESKIN_OAUTH_BASE = "https://open.littleskin.cn"
+LITTLESKIN_YGGDRASIL_BASE = "https://littleskin.cn/api/yggdrasil"
 
 # 设备代码流轮询状态（全局，一次只允许一个登录流程）
 LS_LOGIN_STATE = {
@@ -4727,7 +5132,7 @@ def littleskin_start_login():
             f"{LITTLESKIN_OAUTH_BASE}/oauth/device_code",
             data={
                 "client_id": LITTLESKIN_CLIENT_ID,
-                "scope": "SCOPE",
+                "scope": "openid Yggdrasil.PlayerProfiles.Read Yggdrasil.MinecraftToken.Create offline_access",
             },
             headers={"Accept": "application/json"},
             timeout=15,
@@ -4930,6 +5335,91 @@ def littleskin_complete(profile_name: str = "", profile_id: str = ""):
         write_log("ERROR", f"LittleSkin 保存账户失败: {e}")
         return {"code": 500, "msg": f"保存账户失败: {e}"}
 
+# ====================== API: XGstudio 账号 ======================
+@app.get("/api/xg/status")
+def xg_status():
+    with XG_SESSION_LOCK:
+        logged = bool(XG_SESSION["logged_in"])
+        username = XG_SESSION["username"] if logged else ""
+        role = XG_SESSION["role"] if logged else ""
+
+    acc = xg_read_account()
+    return {
+        "code": 200,
+        "registered": acc is not None and xg_yon_on(),
+        "logged_in": logged,
+        "username": username,
+        "role": role,
+    }
+
+
+@app.get("/api/xg/login")
+def xg_login(username: str, password: str):
+    with XG_SESSION_LOCK:
+        if XG_SESSION["logged_in"]:
+            return {"code": 400, "msg": "已登录，请先退出"}
+
+    if not xg_yon_on():
+        return {"code": 400, "msg": "本机未注册 XGstudio 账号"}
+
+    acc = xg_read_account()
+    if not acc:
+        return {"code": 400, "msg": "读取注册表失败"}
+
+    if username.strip() != acc["username"]:
+        return {"code": 400, "msg": "用户名或密码错误"}
+
+    if not HAS_BCRYPT:
+        write_log("ERROR", "bcrypt 未安装，XGstudio 登录不可用")
+        return {"code": 500, "msg": "服务端缺少 bcrypt 依赖"}
+    try:
+        ok = bcrypt.checkpw(password.encode("utf-8"), acc["hash"])
+    except Exception as e:
+        write_log("ERROR", f"bcrypt 校验异常: {e}")
+        return {"code": 400, "msg": "用户名或密码错误"}
+
+    if not ok:
+        return {"code": 400, "msg": "用户名或密码错误"}
+
+    _now = int(time.time())
+    with XG_SESSION_LOCK:
+        XG_SESSION["logged_in"] = True
+        XG_SESSION["username"] = acc["username"]
+        XG_SESSION["role"] = acc["role"] or ""
+        XG_SESSION["login_time"] = _now
+
+    xg_session_save(acc["username"], acc["role"] or "", _now)
+
+    write_log("INFO", f"XGstudio 登录成功: {acc['username']} (职位={acc['role'] or '无'})")
+    return {
+        "code": 200,
+        "msg": "登录成功",
+        "username": acc["username"],
+        "role": acc["role"] or "",
+    }
+
+
+@app.get("/api/xg/logout")
+def xg_logout():
+    with XG_SESSION_LOCK:
+        old = XG_SESSION["username"]
+        XG_SESSION["logged_in"] = False
+        XG_SESSION["username"] = ""
+        XG_SESSION["role"] = ""
+        XG_SESSION["login_time"] = 0
+    xg_session_clear()
+    if old:
+        write_log("INFO", f"XGstudio 退出登录: {old}")
+    return {"code": 200, "msg": "已退出"}
+
+
+@app.get("/api/xg/devmode")
+def xg_devmode():
+    with XG_SESSION_LOCK:
+        ok = bool(XG_SESSION["logged_in"])
+    return {"code": 200, "devmode": ok}
+
+
 # ====================== 启动 ======================
 init_xgmcl_dir()
 init_log()                # ★ 初始化启动器日志
@@ -4945,7 +5435,6 @@ if modrinth_oauth_load():
 _restored = xg_session_load()
 if _restored:
     _u, _r, _t = _restored
-    # 校验这个用户在当前注册表里还存在
     _acc = xg_read_account()
     if _acc and _acc["username"] == _u:
         with XG_SESSION_LOCK:
@@ -4955,7 +5444,6 @@ if _restored:
             XG_SESSION["login_time"] = _t
         write_log("INFO", f"已恢复 XGstudio 登录态: {_u}")
     else:
-        # 账号对不上（改了注册表？）→ 清掉脏 session
         xg_session_clear()
         write_log("WARN", "session 与注册表账号不匹配，已清除")
 
