@@ -1,3 +1,24 @@
+"""
+XGstudio Minecraft Launcher (XGMCL)
+Copyright (C) 2026  XG-cyhliu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
+
+
+
 # upversion.py —— 一键升级版本（保留原版本，批量升级 Mod）
 import os
 import time
@@ -265,6 +286,12 @@ def upversion_task_worker(task_id, root_path, source_version, target_mc,
                     "size": info["size"],
                     "important": False,
                 }, base_source=source, max_retries=3, task_id=task_id)
+
+                # ★ 写元数据（和普通 Modrinth 下载走同一套）
+                try:
+                    core._auto_write_meta_after_download(target_path)
+                except Exception as _e:
+                    core.write_log("WARN", f"升级后写元数据失败: {_e}")
 
                 with _done_lock:
                     upgraded.append({
