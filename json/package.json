@@ -1,6 +1,6 @@
 {
   "name": "XGstudio-Minecraft-Launcher",
-  "version": "2602.01.00",
+  "version": "2602.01.02",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
