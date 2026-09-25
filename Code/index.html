@@ -1,3 +1,23 @@
+<!--
+XGstudio Minecraft Launcher (XGMCL)
+Copyright (C) 2026  XG-cyhliu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -904,11 +924,15 @@ body.aesthetic-glass ::-webkit-scrollbar-thumb:hover {
 }
 
 .left-sidebar {
-    width: 200px; height: 100%; background: var(--bg2);
-    border-right: 1px solid #333; padding: 30px 15px;
-    display: flex; flex-direction: column; gap: 10px;
+    width: 50px; height: 100%; background: var(--bg2);
+    border-right: 1px solid #333; padding: 8px 0;
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 2px;
     position: relative;
     z-index: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .skin-head {
@@ -966,6 +990,26 @@ body.aesthetic-glass ::-webkit-scrollbar-thumb:hover {
 .main { flex: 1; height: 100%; padding: 40px; overflow: auto; position: relative; z-index: 1; }
 .page { display: none; }
 .page.active { display: block; }
+/* ★ 下载页：撑满剩余高度 */
+#page-download.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+#page-download > .log-tabs {
+    flex-shrink: 0;
+}
+/* ★ 主页：撑满剩余高度（webview 用） */
+#page-home.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+#page-home > .home-web-content {
+    flex: 1;
+    min-height: 0;
+    height: auto;   /* 覆盖原 calc(100vh - 120px) */
+}
 
 #page-home {
     position: relative;
@@ -982,6 +1026,9 @@ body.aesthetic-glass ::-webkit-scrollbar-thumb:hover {
     border-radius: 10px;
     overflow: hidden;
     background: #1f1f1f;
+    /* ★ 改成 flex 列容器，让 webview 撑满剩余高度 */
+    display: flex;
+    flex-direction: column;
 }
 /* ★ 主页网页工具栏 */
 .home-web-toolbar {
@@ -992,6 +1039,7 @@ body.aesthetic-glass ::-webkit-scrollbar-thumb:hover {
     background: var(--bg2);
     border-bottom: 1px solid #333;
     border-radius: 10px 10px 0 0;
+    flex-shrink: 0;   /* ★ 别被 webview 压扁 */
 }
 .hw-nav-btn {
     width: 32px;
@@ -1025,18 +1073,26 @@ body.aesthetic-glass ::-webkit-scrollbar-thumb:hover {
     flex: 1;
     min-width: 0;
     height: 32px;
-    line-height: 32px;
     padding: 0 12px;
     background: var(--bg);
     border: 1px solid #333;
     border-radius: 6px;
-    color: #888;
+    color: #ccc;
     font-size: 12px;
     font-family: Consolas, monospace;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     user-select: text;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.hw-nav-url:hover {
+    border-color: #555;
+}
+.hw-nav-url:focus {
+    border-color: var(--accent);
+    color: #fff;
+    background: var(--bg2);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.15);
 }
 
 /* 毛玻璃 */
@@ -1254,31 +1310,171 @@ body.no-quickbar #homeCustomContent {
     color: #777;
 }
 
-.nav-title {
-    color: #eee; text-align: center; font-size: 14px;
-    padding-bottom: 10px; border-bottom: 1px solid #444;
-
-}.left-sidebar button {
-    width: 100%; height: 40px; background: var(--accent2); color: var(--text);
-    border: none; border-radius: 4px; cursor: pointer;
-    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+/* ============ 左侧栏：Logo ============ */
+.nav-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #444;
+    flex-shrink: 0;
+}
+.nav-logo img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    border-radius: 8px;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.35));
 }
 
-.left-sidebar button:hover {
-    background: var(--accent2-hover);
-    transform: translateX(3px);
+/* ============ 左侧栏：导航项容器 ============ */
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
 }
-.left-sidebar button:active {
-    transform: translateX(3px) scale(0.97);
+
+/* ============ 左侧栏：一级按钮（图标 + 文字） ============ */
+.nav-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--nav-icon-color, var(--accent2));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 0;
+    font-family: inherit;
+    transition: background 0.15s ease, color 0.15s ease;
+    position: relative;
 }
-.left-sidebar button.active {
-    background: var(--accent);
-    color: var(--text);
-    font-weight: bold;
-    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.25);
+.nav-btn:hover {
+    color: var(--nav-icon-hover-color, var(--accent2-hover));
 }
-.left-sidebar button.active:hover {
-    background: var(--accent-hover);
+/* 激活项 hover 不吃次色 hover，保持激活色 */
+.nav-item.active > .nav-btn:hover {
+    color: var(--nav-icon-active-color, var(--accent));
+}
+.nav-icon-wrap {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.nav-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: inherit;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.nav-sub-btn {
+    color: var(--nav-icon-color, var(--text2));
+}
+.nav-sub-btn:hover {
+    color: var(--nav-icon-hover-color, var(--text));
+}
+.nav-sub-btn.active {
+    color: var(--nav-icon-active-color, var(--accent));
+}
+
+/* 一级文字：只在激活时显示，14px */
+.nav-label {
+    font-size: 10px;
+    line-height: 1;
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.2s ease, opacity 0.2s ease, margin 0.2s ease;
+    margin-top: 0;
+    max-width: 100%;
+    text-align: center;
+    text-overflow: ellipsis;
+}
+
+/* 无子界面的主界面激活态：图标 + 文字都主色（或用户配的激活色） */
+.nav-item.active > .nav-btn {
+    color: var(--nav-icon-active-color, var(--accent));
+}
+.nav-item.active > .nav-btn .nav-label {
+    max-height: 20px;
+    opacity: 1;
+    margin-top: 2px;
+}
+
+/* 有子界面的主界面：图标保持次色（或用户配的图标色），不显示一级文字 */
+.nav-item.has-sub > .nav-btn {
+    color: var(--nav-icon-color, var(--accent2));
+}
+.nav-item.has-sub > .nav-btn .nav-label {
+    max-height: 0;
+    opacity: 0;
+}
+.nav-item.has-sub:not(.active):hover > .nav-btn {
+    color: var(--nav-icon-hover-color, var(--accent2-hover));
+}
+.nav-item.active > .nav-btn:hover,
+.nav-item.active:hover > .nav-btn {
+    color: var(--nav-icon-active-color, var(--accent));
+}
+
+/* ============ 左侧栏：二级文字列表 ============ */
+.nav-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
+}
+.nav-item.active > .nav-sub {
+    max-height: 300px;
+    opacity: 1;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+.nav-sub-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--nav-icon-color, var(--text2));
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 1.4;
+    text-align: center;
+    padding: 4px 2px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-sub-btn:hover {
+    background: rgba(var(--accent2-rgb), 0.35);
+    color: var(--nav-icon-hover-color, var(--text));
+}
+.nav-sub-btn.active:hover {
+    color: var(--nav-icon-active-color, var(--accent));
+}
+.nav-sub-btn.active {
+    color: var(--nav-icon-active-color, var(--accent));
+    font-weight: 500;
+    background: rgba(var(--accent-rgb), 0.10);
 }
 
 .lang-select {
@@ -2089,6 +2285,188 @@ body.aesthetic-glass .ver-card-btn {
     word-break: break-all;
 }
 
+/* ============ 前置依赖树弹窗 ============ */
+.dep-tree-box {
+    background: var(--bg3);
+    border: 1px solid #383838;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    animation: aboutIn 0.18s ease;
+}
+.dep-tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+.dep-tree-header h2 {
+    color: var(--accent);
+    margin: 0;
+    font-size: 18px;
+}
+.dep-tree-close {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+.dep-tree-close:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--danger);
+}
+.dep-tree-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    min-height: 200px;
+}
+
+.dep-tree-loading,
+.dep-tree-empty {
+    color: #888;
+    font-size: 14px;
+    padding: 20px;
+    text-align: center;
+}
+
+.dep-tree-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #333;
+}
+
+.dep-node {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    user-select: none;
+    background: rgba(255,255,255,0.06);
+    color: #ddd;
+}
+.dep-node:hover {
+    transform: translateY(-1px);
+}
+.dep-node.required {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+}
+.dep-node.required.missing {
+    background: rgba(var(--danger-rgb), 0.15);
+    color: var(--danger);
+}
+.dep-node.optional {
+    background: rgba(255,159,67,0.15);
+    color: #ff9f43;
+}
+.dep-node.incompatible {
+    background: rgba(var(--danger-rgb), 0.15);
+    color: var(--danger);
+}
+.dep-node.embeded, .dep-node.embedded {
+    background: rgba(136,136,136,0.15);
+    color: #888;
+}
+.dep-node.unknown {
+    background: #333;
+    color: #888;
+    cursor: default;
+}
+.dep-node.unknown:hover {
+    transform: none;
+}
+
+.dep-tree-section {
+    margin-bottom: 24px;
+}
+.dep-tree-section-title {
+    color: #aaa;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #2a2a2a;
+    letter-spacing: 0.5px;
+}
+
+.dep-tree-root {
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+}
+.dep-tree-root-name {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+.dep-tree-root-name:hover {
+    color: var(--accent);
+}
+.dep-tree-root-file {
+    color: #666;
+    font-size: 11px;
+    font-family: Consolas, monospace;
+    margin-left: 10px;
+    font-weight: normal;
+}
+
+/* 嵌套树 */
+.dep-tree-ul {
+    list-style: none;
+    margin: 6px 0 0 0;
+    padding-left: 20px;
+    border-left: 1px dashed rgba(255,255,255,0.10);
+}
+.dep-tree-li {
+    padding: 3px 0;
+    position: relative;
+}
+.dep-tree-li::before {
+    content: "";
+    position: absolute;
+    left: -20px;
+    top: 14px;
+    width: 14px;
+    height: 1px;
+    background: rgba(255,255,255,0.10);
+}
+
+/* 毛玻璃 */
+body.aesthetic-glass .dep-tree-box {
+    background: rgba(var(--bg-rgb), var(--card-alpha, 1)) !important;
+    backdrop-filter: blur(var(--btn-blur, 8px)) saturate(1.3);
+    -webkit-backdrop-filter: blur(var(--btn-blur, 8px)) saturate(1.3);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.08),
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 20px 60px rgba(0,0,0,0.55);
+}
+
 /* ============ 全局背景层 ============ */
 #globalBgLayer {
     display: none;
@@ -2303,7 +2681,6 @@ body.aesthetic-glass .launch-btn,
 body.aesthetic-glass .ver-btn,
 body.aesthetic-glass .log-btn,
 body.aesthetic-glass .opt-btn,
-body.aesthetic-glass .nav-btn,
 body.aesthetic-glass .root-actions button,
 body.aesthetic-glass .account-group-add,
 body.aesthetic-glass .account-detail-actions button,
@@ -2324,14 +2701,12 @@ body.aesthetic-glass .opt-btn:not(.secondary):not(.danger) {
 body.aesthetic-glass .ver-btn,
 body.aesthetic-glass .log-btn,
 body.aesthetic-glass .opt-btn.secondary,
-body.aesthetic-glass .nav-btn,
 body.aesthetic-glass .root-actions button:not(.danger):not(.primary),
 body.aesthetic-glass .account-group-add {
     background: rgba(var(--accent2-rgb), var(--btn-alpha-secondary, 1)) !important;
 }
 
-/* ★ 导航栏选中态：主色，不被次色覆盖 */
-body.aesthetic-glass .nav-btn.active,
+/* ★ 侧栏底部（右栏）按钮选中态 */
 body.aesthetic-glass .right-sidebar button.active {
     background: rgba(var(--accent-rgb), var(--btn-alpha-primary, 1)) !important;
     color: var(--text);
@@ -2513,8 +2888,7 @@ body.aesthetic-glass .account-card > .account-card-enter {
 /* 侧栏上的按钮：液态玻璃边缘外拱 */
 body.aesthetic-liquid .right-sidebar .ver-btn,
 body.aesthetic-liquid .right-sidebar .launch-btn,
-body.aesthetic-liquid .right-sidebar .log-btn,
-body.aesthetic-liquid .left-sidebar button {
+body.aesthetic-liquid .right-sidebar .log-btn {
     position: relative;
     overflow: visible;
     box-shadow:
@@ -2524,8 +2898,7 @@ body.aesthetic-liquid .left-sidebar button {
 }
 body.aesthetic-liquid .right-sidebar .ver-btn::before,
 body.aesthetic-liquid .right-sidebar .launch-btn::before,
-body.aesthetic-liquid .right-sidebar .log-btn::before,
-body.aesthetic-liquid .left-sidebar button::before {
+body.aesthetic-liquid .right-sidebar .log-btn::before {
     content: "";
     position: absolute;
     inset: -2px;
@@ -2549,8 +2922,7 @@ body.aesthetic-glass .opt-btn:not(.secondary):not(.danger):hover {
 }
 body.aesthetic-glass .opt-btn.secondary:hover,
 body.aesthetic-glass .ver-btn:hover,
-body.aesthetic-glass .log-btn:hover,
-body.aesthetic-glass .nav-btn:hover {
+body.aesthetic-glass .log-btn:hover {
     background: rgba(var(--accent2-rgb), calc(var(--btn-alpha-secondary, 1) + 0.1)) !important;
 }
 
@@ -2738,6 +3110,46 @@ body.aesthetic-glass .opt-btn.danger:hover {
     display: flex;
     gap: 10px;
     margin-top: 14px;
+}
+
+/* ============ 点击动画（原样→缩小→放大→原样） ============ */
+@keyframes navBtnClick {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(0.88); }
+    65%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+.nav-btn.clicking,
+.nav-sub-btn.clicking {
+    animation: navBtnClick 0.28s ease-out;
+}
+
+/* ============ 加载动画（点沿直线循环，中段减速） ============ */
+.xg-loading {
+    position: relative;
+    width: 100%;
+    height: 32px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.xg-loading-dot {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    top: 50%;
+    transform: translateY(-50%);
+    will-change: left;
+}
+.xg-loading-text {
+    position: relative;
+    z-index: 1;
+    color: var(--text2);
+    font-size: 12px;
+    margin-left: 4px;
 }
 
 /* 开发模式才显示的元素 */
@@ -3236,10 +3648,11 @@ body.aesthetic-glass .dl-ver-grid {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin: 16px 0;
-    max-height: calc(100vh - 320px);
+    margin: 16px 0 0 0;
+    /* ★ 不再写死 max-height，让父级 flex 决定 */
     overflow-y: auto;
     padding: 4px;
+    min-height: 0;   /* flex 子项要能缩 */
 }
 .mod-card {
     display: flex;
@@ -3297,18 +3710,119 @@ body.aesthetic-glass .dl-ver-grid {
     border-radius: 10px;
     font-family: inherit;
 }
+/* Mod 面板：撑满剩余高度，列表弹性 */
+#dlPanelMod {
+    flex-direction: column;
+    /* 不写死高度，让内容自己撑 */
+    min-height: 0;
+}
+#dlPanelMod .mod-result-list {
+    flex: 1;
+    min-height: 0;
+    max-height: calc(100vh - 240px);   /* 给列表一个上限，防止无限高 */
+}
+#dlPanelMod .dl-toolbar {
+    flex-shrink: 0;
+}
+#dlPanelMod .mod-result-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* ★ 内容不够高时不撑满，避免下方空一大截 */
+    max-height: 100%;
+}
+#dlPanelMod .mod-result-list:has(.empty-tip) {
+    flex: 0 0 auto;
+}
+
 .mod-pagination {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    margin: 20px 0;
+    gap: 8px;
+    margin: 16px 0 6px 0;
 }
-.mod-pagination button:disabled {
+
+.mod-pager-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background: var(--accent2);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease,
+                transform 0.1s ease, color 0.15s ease;
+    font-family: Consolas, monospace;
+}
+.mod-pager-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #1a1a1a;
+    transform: translateY(-1px);
+}
+.mod-pager-btn:active {
+    transform: translateY(-1px) scale(0.94);
+}
+.mod-pager-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+    background: var(--accent2);
+    border-color: #444;
+    color: var(--text);
     transform: none;
 }
+.mod-pager-info {
+    color: #888;
+    font-size: 12px;
+    font-family: Consolas, monospace;
+    min-width: 48px;
+    text-align: center;
+    user-select: none;
+}
+
+/* 工具栏翻页键：跟搜索框同高 */
+.mod-pager-inline {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+}
+.mod-pager-inline .mod-pager-btn {
+    width: 28px;
+    height: 28px;
+}
+
+/* 「我的」页登录区 */
+.mine-oauth-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 0 16px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #333;
+    min-height: 40px;
+}
+
+/* 毛玻璃（H2） */
+body.aesthetic-glass .mod-pager-btn {
+    backdrop-filter: blur(var(--btn-blur, 8px)) saturate(1.35);
+    -webkit-backdrop-filter: blur(var(--btn-blur, 8px)) saturate(1.35);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.08),
+        0 0 0 1px rgba(255,255,255,0.04);
+}
+body.aesthetic-glass .mine-oauth-bar {
+    border-bottom-color: rgba(255,255,255,0.08);
+}
+
 body.aesthetic-glass .mod-card {
     background: rgba(var(--bg-rgb), var(--card-alpha, 1)) !important;
     backdrop-filter: blur(var(--btn-blur, 8px)) saturate(1.3);
@@ -3636,14 +4150,118 @@ body.aesthetic-glass .xgsel-pop {
 </script>
 
 <div class="left-sidebar">
-    <div class="nav-title">XGstudio Minecraft Launcher</div>
-    <button class="nav-btn active" data-page="home" data-i18n="nav.home">主页</button>
-    <button class="nav-btn" data-page="version" data-i18n="nav.version">版本</button>
-    <button class="nav-btn" data-page="download" data-i18n="nav.download">下载</button>
-    <button class="nav-btn" data-page="account" data-i18n="nav.account">账户</button>
-    <button class="nav-btn" data-page="logs" data-i18n="nav.logs">日志</button>
-    <button class="nav-btn" data-page="settings" data-i18n="nav.settings">设置</button>
-    <button class="nav-btn" data-page="more" data-i18n="nav.more">更多</button>
+    <div class="nav-logo">
+        <img src="icon.png" alt="XGstudio">
+    </div>
+
+    <!-- 主页 -->
+    <div class="nav-item active" data-nav="home">
+        <div class="nav-btn" data-page="home">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.home">主页</span>
+        </div>
+    </div>
+
+    <!-- 版本 -->
+    <div class="nav-item" data-nav="version">
+        <div class="nav-btn" data-page="version">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.version">版本</span>
+        </div>
+    </div>
+
+    <!-- 下载 -->
+    <div class="nav-item has-sub" data-nav="download">
+        <div class="nav-btn" data-page="download">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.download">下载</span>
+        </div>
+        <div class="nav-sub">
+            <button class="nav-sub-btn active" data-sub="vanilla" data-i18n="download.tabVanilla">原版</button>
+            <button class="nav-sub-btn" data-sub="mod" data-i18n="download.tabMod">Mod</button>
+            <button class="nav-sub-btn" data-sub="mine" data-i18n="download.tabMine">我的</button>
+        </div>
+    </div>
+
+    <!-- 账户 -->
+    <div class="nav-item" data-nav="account">
+        <div class="nav-btn" data-page="account">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.account">账户</span>
+        </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="nav-item has-sub" data-nav="logs">
+        <div class="nav-btn" data-page="logs">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.logs">日志</span>
+        </div>
+        <div class="nav-sub">
+            <button class="nav-sub-btn active" data-sub="game" data-i18n="log.tabGame">游戏日志</button>
+            <button class="nav-sub-btn" data-sub="launcher" data-i18n="log.tabLauncher">启动器日志</button>
+            <button class="nav-sub-btn" data-sub="other" data-i18n="log.tabOther">其他</button>
+        </div>
+    </div>
+
+    <!-- 设置 -->
+    <div class="nav-item has-sub" data-nav="settings">
+        <div class="nav-btn" data-page="settings">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.settings">设置</span>
+        </div>
+        <div class="nav-sub">
+            <button class="nav-sub-btn active" data-sub="global" data-i18n="settings.cardGlobal">全局设置</button>
+            <button class="nav-sub-btn" data-sub="ui" data-i18n="settings.cardUi">界面设置</button>
+        </div>
+    </div>
+
+    <!-- 更多 -->
+    <div class="nav-item has-sub" data-nav="more">
+        <div class="nav-btn" data-page="more">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="nav.more">更多</span>
+        </div>
+        <div class="nav-sub">
+            <button class="nav-sub-btn active" data-sub="plugins" data-i18n="morepage.plugins">插件</button>
+            <button class="nav-sub-btn" data-sub="source" data-i18n="morepage.source">查看源代码</button>
+            <button class="nav-sub-btn" data-sub="about" data-i18n="morepage.about">关于</button>
+        </div>
+    </div>
+
+    <!-- 下载任务 -->
+    <div class="nav-item" data-nav="download-task">
+        <div class="nav-btn" data-page="download-task">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="morepage.dlTask">下载任务</span>
+        </div>
+    </div>
+
+    <!-- 直接开服 -->
+    <div class="nav-item" data-nav="server">
+        <div class="nav-btn" data-page="server">
+            <div class="nav-icon-wrap">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            </div>
+            <span class="nav-label" data-i18n="morepage.server">直接开服</span>
+        </div>
+    </div>
 </div>
 
 <div class="main">
@@ -3691,7 +4309,10 @@ body.aesthetic-glass .xgsel-pop {
                 <button class="hw-nav-btn" id="homeWebForwardBtn" onclick="homeWebForward()" title="前进">→</button>
                 <button class="hw-nav-btn" id="homeWebReloadBtn" onclick="homeWebReload()" title="刷新">↻</button>
                 <button class="hw-nav-btn" id="homeWebHomeBtn" onclick="homeWebGoHome()" title="回到主页 URL">⌂</button>
-                <span class="hw-nav-url" id="homeWebUrlBar">about:blank</span>
+                <input class="hw-nav-url" id="homeWebUrlBar" type="text"
+                       value="about:blank" spellcheck="false"
+                       onkeydown="homeWebUrlKeydown(event)"
+                       onblur="homeWebUrlBlur()">
                 <button class="hw-nav-btn" onclick="homeWebOpenDevTools()" title="开发者工具">⚙</button>
             </div>
             <webview id="homeWebview" src="about:blank"
@@ -3699,7 +4320,7 @@ body.aesthetic-glass .xgsel-pop {
                      webpreferences="contextIsolation=yes"
                      allowpopups
                      useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-                     style="width:100%; height:calc(100vh - 168px); border:none; display:inline-flex;">
+                     style="flex:1; width:100%; min-height:0; border:none; display:flex;">
             </webview>
         </div>
     </div>
@@ -3942,6 +4563,7 @@ body.aesthetic-glass .xgsel-pop {
                         data-i18n="vmods.openFolder">打开 mods 目录</button>
                 <button class="opt-btn secondary" onclick="vdModLoadList()"
                         data-i18n="vmods.refresh">刷新</button>
+                <button class="opt-btn" onclick="vdOpenDepTree()">前置</button>
                 <input type="text" id="vdModSearch" placeholder="搜索文件名 / 中文名..."
                        style="width: 240px;"
                        oninput="vdModRender()">
@@ -4092,14 +4714,6 @@ body.aesthetic-glass .xgsel-pop {
     </div>
 
     <div class="page" id="page-download">
-        <h2 data-i18n="download.title">版本下载</h2>
-
-        <!-- ★ 下载页 Tab -->
-        <div class="log-tabs" style="margin-bottom: 16px;">
-            <button class="log-tab active" data-dl-tab="vanilla" onclick="dlSwitchTab('vanilla')">原版</button>
-            <button class="log-tab" data-dl-tab="mod" onclick="dlSwitchTab('mod')">Mod</button>
-            <button class="log-tab" data-dl-tab="mine" onclick="dlSwitchTab('mine')">我的</button>
-        </div>
 
         <!-- ============ 原版面板 ============ -->
         <div id="dlPanelVanilla">
@@ -4138,6 +4752,7 @@ body.aesthetic-glass .xgsel-pop {
 
         <!-- ============ Mod 面板 ============ -->
         <div id="dlPanelMod" style="display:none;">
+
             <div class="dl-toolbar">
                 <input type="text" id="modSearchInput" placeholder="搜索 Mod..."
                        style="width: 320px;"
@@ -4161,35 +4776,44 @@ body.aesthetic-glass .xgsel-pop {
                 </select>
                 <button class="opt-btn" onclick="modDoSearch()">搜索</button>
 
-                <!-- ★ 登录按钮 / 用户信息 -->
-                <span style="margin-left:auto; display:flex; align-items:center; gap:10px;">
-                    <span id="modOauthNotLoggedIn" style="display:none;">
-                        <button class="opt-btn" onclick="modOauthLogin()">登录 Modrinth</button>
-                    </span>
-                    <span id="modOauthLoggedIn" style="display:none; align-items:center; gap:8px;">
-                        <img id="modOauthAvatar" src="" alt=""
-                             style="width:28px; height:28px; border-radius:50%; background:#333;"
-                             onerror="this.style.visibility='hidden';">
-                        <span id="modOauthUsername" style="color:#ccc; font-size:13px;"></span>
-                        <button class="opt-btn secondary" style="padding:4px 10px; font-size:12px;"
-                                onclick="modOauthLogout()">登出</button>
-                    </span>
-                </span>
+                <!-- ★ 工具栏翻页键（最右，跟搜索框同高） -->
+                <div class="mod-pager-inline" id="modToolbarPager" style="display:none;">
+                    <button class="mod-pager-btn" id="modToolbarFirst" onclick="modFirstPage()" title="回到第一页">«</button>
+                    <button class="mod-pager-btn" id="modToolbarPrev" onclick="modPrevPage()" title="上一页">‹</button>
+                    <span class="mod-pager-info" id="modToolbarPageInfo">1/1</span>
+                    <button class="mod-pager-btn" id="modToolbarNext" onclick="modNextPage()" title="下一页">›</button>
+                </div>
             </div>
 
             <div id="modResultList" class="mod-result-list">
                 <p class="empty-tip">输入关键词搜索 Mod</p>
-            </div>
-
-            <div class="mod-pagination" id="modPagination" style="display:none;">
-                <button class="opt-btn secondary" id="modPrevBtn" onclick="modPrevPage()">← 上一页</button>
-                <span id="modPageInfo" style="color:#888; font-size:13px;">-</span>
-                <button class="opt-btn secondary" id="modNextBtn" onclick="modNextPage()">下一页 →</button>
+                <!-- ★ 底部翻页键（跟列表同级，滚到底才看到） -->
+                <div class="mod-pagination" id="modPagination" style="display:none;">
+                    <button class="mod-pager-btn" id="modFirstBtn" onclick="modFirstPage()" title="回到第一页">«</button>
+                    <button class="mod-pager-btn" id="modPrevBtn" onclick="modPrevPage()" title="上一页">‹</button>
+                    <span class="mod-pager-info" id="modPageInfo">1/1</span>
+                    <button class="mod-pager-btn" id="modNextBtn" onclick="modNextPage()" title="下一页">›</button>
+                </div>
             </div>
         </div>
 
         <!-- ============ 我的面板 ============ -->
         <div id="dlPanelMine" style="display:none;">
+            <!-- ★ Modrinth 登录区 -->
+            <div class="mine-oauth-bar">
+                <span id="modOauthNotLoggedIn" style="display:none;">
+                    <button class="opt-btn" onclick="modOauthLogin()">登录 Modrinth</button>
+                </span>
+                <span id="modOauthLoggedIn" style="display:none; align-items:center; gap:10px;">
+                    <img id="modOauthAvatar" src="" alt=""
+                         style="width:32px; height:32px; border-radius:50%; background:#333;"
+                         onerror="this.style.visibility='hidden';">
+                    <span id="modOauthUsername" style="color:#ccc; font-size:14px;"></span>
+                    <button class="opt-btn secondary" style="padding:5px 12px; font-size:12px;"
+                            onclick="modOauthLogout()">登出</button>
+                </span>
+            </div>
+
             <div id="modMineContent">
                 <p class="empty-tip">请先登录 Modrinth</p>
             </div>
@@ -4397,15 +5021,6 @@ body.aesthetic-glass .xgsel-pop {
     <div class="page" id="page-logs">
         <h2 data-i18n="log.title">XGMCL日志查看器</h2>
 
-        <div class="log-tabs">
-            <button class="log-tab active" data-log-type="game" onclick="switchLogType('game')"
-                    data-i18n="log.tabGame">游戏日志</button>
-            <button class="log-tab" data-log-type="launcher" onclick="switchLogType('launcher')"
-                    data-i18n="log.tabLauncher">启动器日志</button>
-            <button class="log-tab" data-log-type="other" onclick="switchLogType('other')"
-                    data-i18n="log.tabOther">其他</button>
-        </div>
-
         <div id="logPanelGame">
             <div class="log-toolbar">
                 <select id="logVersionSelect"></select>
@@ -4478,28 +5093,9 @@ body.aesthetic-glass .xgsel-pop {
     </div>
     <div class="page" id="page-settings">
 
-        <!-- 设置主页 -->
-        <div id="settingsHome">
-            <h2 data-i18n="settings.title">设置</h2>
-            <p class="tip-text" data-i18n="settings.homeHint">选择要修改的设置类别</p>
-
-            <div class="settings-card-grid">
-                <div class="settings-card" onclick="enterSettingsSub('global')">
-                    <div class="settings-card-title" data-i18n="settings.cardGlobal">全局设置</div>
-                    <div class="settings-card-desc" data-i18n="settings.cardGlobalDesc">内存、JVM、Java、优先级、下载</div>
-                </div>
-                <div class="settings-card" onclick="enterSettingsSub('ui')">
-                    <div class="settings-card-title" data-i18n="settings.cardUi">界面设置</div>
-                    <div class="settings-card-desc" data-i18n="settings.cardUiDesc">背景图、主页内容</div>
-                </div>
-            </div>
-        </div>
-
         <!-- 子页：全局设置 -->
-        <div id="settingsSubGlobal" style="display:none;">
-            <button class="opt-btn secondary" onclick="backToSettingsHome()"
-                    data-i18n="settings.back">← 返回</button>
-            <h2 style="margin-top:16px;" data-i18n="settings.globalTitle">全局设置</h2>
+        <div id="settingsSubGlobal">
+            <h2 data-i18n="settings.globalTitle">全局设置</h2>
 
             <div class="setting-item">
                 <h3 data-i18n="more.ramTitle">全局游戏内存分配</h3>
@@ -4592,9 +5188,7 @@ body.aesthetic-glass .xgsel-pop {
 
         <!-- 子页：界面设置 -->
         <div id="settingsSubUi" style="display:none;">
-            <button class="opt-btn secondary" onclick="backToSettingsHome()"
-                    data-i18n="settings.back">← 返回</button>
-            <h2 style="margin-top:16px;" data-i18n="settings.uiTitle">界面设置</h2>
+            <h2 data-i18n="settings.uiTitle">界面设置</h2>
 
             <div class="setting-item">
                 <h3 data-i18n="theme.title">主题颜色</h3>
@@ -4698,6 +5292,36 @@ body.aesthetic-glass .xgsel-pop {
                     <summary data-i18n="theme.log">主题操作日志</summary>
                     <div class="log-box" id="themeLog">-</div>
                 </details>
+            </div>
+
+            <!-- ★ 导航栏 -->
+            <div class="setting-item">
+                <h3 data-i18n="appearance.navTitle">导航栏</h3>
+                <p class="tip-text" data-i18n="appearance.navHint">自定义左侧栏图标和文字的颜色</p>
+
+                <div class="theme-grid" style="margin-top:12px;">
+                    <div class="theme-row">
+                        <span class="theme-row-label" data-i18n="appearance.navIconColor">图标颜色</span>
+                        <input type="color" id="navIconColor" oninput="onNavIconColorChange()">
+                        <span class="theme-value" id="navIconColorVal">自动</span>
+                        <button class="opt-btn secondary" style="padding:2px 8px; font-size:12px; margin-left:4px;"
+                                onclick="clearNavIconColor()">×</button>
+                    </div>
+                    <div class="theme-row">
+                        <span class="theme-row-label" data-i18n="appearance.navIconActiveColor">激活颜色</span>
+                        <input type="color" id="navIconActiveColor" oninput="onNavIconActiveColorChange()">
+                        <span class="theme-value" id="navIconActiveColorVal">自动</span>
+                        <button class="opt-btn secondary" style="padding:2px 8px; font-size:12px; margin-left:4px;"
+                                onclick="clearNavIconActiveColor()">×</button>
+                    </div>
+                    <div class="theme-row">
+                        <span class="theme-row-label" data-i18n="appearance.navIconHoverColor">悬停颜色</span>
+                        <input type="color" id="navIconHoverColor" oninput="onNavIconHoverColorChange()">
+                        <span class="theme-value" id="navIconHoverColorVal">自动</span>
+                        <button class="opt-btn secondary" style="padding:2px 8px; font-size:12px; margin-left:4px;"
+                                onclick="clearNavIconHoverColor()">×</button>
+                    </div>
+                </div>
             </div>
 
             <!-- ★ H2 外观效果 -->
@@ -4841,11 +5465,6 @@ body.aesthetic-glass .xgsel-pop {
 
     </div>
     <div class="page" id="page-server">
-        <div class="vd-header">
-            <button class="opt-btn secondary" onclick="switchPage('more')"
-                    data-i18n="server.back">← 返回</button>
-        </div>
-
         <h2 data-i18n="server.title">直接开服</h2>
 
         <!-- 顶部：目录 + 状态 + 起停按钮 -->
@@ -5001,11 +5620,6 @@ body.aesthetic-glass .xgsel-pop {
     </div>
 
     <div class="page" id="page-download-task">
-        <div class="vd-header">
-            <button class="opt-btn secondary" onclick="switchPage('more')"
-                    data-i18n="dlTask.back">← 返回</button>
-        </div>
-
         <h2 data-i18n="dlTask.title">下载任务</h2>
 
         <div class="dl-task-toolbar">
@@ -5052,38 +5666,48 @@ body.aesthetic-glass .xgsel-pop {
     </div>
 
     <div class="page" id="page-more">
-        <h2 data-i18n="morepage.title">更多</h2>
-        <p data-i18n="morepage.hint">更多功能将陆续加入</p>
+        <!-- 子界面：插件 -->
+        <div id="morePanelPlugins">
+            <h2 data-i18n="morepage.plugins">插件</h2>
+            <p class="empty-tip" data-i18n="morepage.pluginsDesc">开关内置插件</p>
+            <p class="empty-tip">插件系统开发中……</p>
+        </div>
 
-        <div class="more-grid">
-            <div class="more-card" data-dev-only onclick="alert('插件系统开发中...')">
-                <div class="icon">🔌</div>
-                <div class="name" data-i18n="morepage.plugins">插件</div>
-                <div class="desc" data-i18n="morepage.pluginsDesc">开关内置插件</div>
-            </div>
+        <!-- 子界面：查看源代码 -->
+        <div id="morePanelSource" style="display:none;">
+            <h2 data-i18n="morepage.source">查看源代码</h2>
+            <p class="empty-tip" data-i18n="morepage.sourceDesc">用系统编辑器打开</p>
+            <p class="empty-tip">源码查看开发中……</p>
+        </div>
 
-            <div class="more-card" onclick="switchPage('download-task')">
-                <div class="icon">📥</div>
-                <div class="name" data-i18n="morepage.dlTask">下载任务</div>
-                <div class="desc" data-i18n="morepage.dlTaskDesc">查看正在下载和历史的下载任务</div>
-            </div>
+        <!-- 子界面：关于 -->
+        <div id="morePanelAbout" style="display:none;">
+            <h2 data-i18n="morepage.about">关于</h2>
+            <div class="about-box" style="position:static; box-shadow:none; margin-top:16px;">
+                <h2>XGstudio Minecraft Launcher</h2>
+                <div class="version"><span data-i18n="xgmcl_version">xg26b01c</span> · ©XGstudio @2020~2026</div>
 
-            <div class="more-card" onclick="alert('源码查看开发中...')">
-                <div class="icon">📂</div>
-                <div class="name" data-i18n="morepage.source">查看源代码</div>
-                <div class="desc" data-i18n="morepage.sourceDesc">用系统编辑器打开</div>
-            </div>
+                <div class="section">
+                    <div class="section-title">XGstudio成员列表</div>
+                    <div class="members">
+                        <span class="member">XG</span>
+                        <span class="member">_XAM</span>
+                        <span class="member">HY</span>
+                        <span class="member">Sodium</span>
+                        <span class="member">HBK</span>
+                        <span class="member">O-o</span>
+                        <span class="member">LJH</span>
+                        <span class="member">ChuiD</span>
+                    </div>
+                </div>
 
-            <div class="more-card" onclick="switchPage('server')">
-                <div class="icon">🖥️</div>
-                <div class="name" data-i18n="morepage.server">直接开服</div>
-                <div class="desc" data-i18n="morepage.serverDesc">启动 Fabric 服务端</div>
-            </div>
-
-            <div class="more-card" onclick="showAbout()">
-                <div class="icon">ℹ️</div>
-                <div class="name" data-i18n="morepage.about">关于</div>
-                <div class="desc">XGstudio Minecraft Launcher</div>
+                <div class="section">
+                    <div class="section-title">额外帮助</div>
+                    <div class="helper">
+                        <div>DeepSeek · DouBao</div>
+                        <div>GitHub Copilot（GPT5.6Luna）</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -5136,7 +5760,7 @@ body.aesthetic-glass .xgsel-pop {
 <div class="about-mask" id="aboutMask">
     <div class="about-box">
         <h2>XGstudio Minecraft Launcher</h2>
-        <div class="version"><span data-i18n="xgmcl_version">xg26b01a</span> · ©XGstudio @2020~2026</div>
+        <div class="version"><span data-i18n="xgmcl_version">xg26b01c</span> · ©XGstudio @2020~2026</div>
 
         <div class="section">
             <div class="section-title">XGstudio成员列表</div>
@@ -5445,63 +6069,159 @@ function closeTrust() {
 }
 
 /* ============ 导航 ============ */
-const navBtns = document.querySelectorAll(".nav-btn");
 const pages = document.querySelectorAll(".page");
+const navItems = document.querySelectorAll(".nav-item");
+// ★ 兼容：代码里到处用 navBtns，实际就是导航项
+const navBtns = navItems;
 
+// 主界面 → 默认子界面
+const NAV_DEFAULT_SUB = {
+    download: "vanilla",
+    logs: "game",
+    settings: "global",
+    more: "plugins",
+};
+
+// 主界面 → 子界面列表（用于恢复/切换）
+const NAV_SUBS = {
+    download: ["vanilla", "mod", "mine"],
+    logs: ["game", "launcher", "other"],
+    settings: ["global", "ui"],
+    more: ["plugins", "source", "about"],
+};
+
+// 当前导航状态
+let currentNav = "home";      // 当前一级
+let currentSub = "";          // 当前二级（无则空）
+
+/* ---- 触发点击动画 ---- */
+function playClickAnim(el) {
+    if (!el) return;
+    el.classList.remove("clicking");
+    // 强制重排，让动画能重播
+    void el.offsetWidth;
+    el.classList.add("clicking");
+    setTimeout(() => el.classList.remove("clicking"), 300);
+}
+
+/* ---- 更新左侧栏高亮 ---- */
+function updateNavHighlight() {
+    navItems.forEach(item => {
+        let nav = item.dataset.nav;
+        item.classList.toggle("active", nav === currentNav);
+    });
+    // 二级高亮
+    document.querySelectorAll(".nav-sub-btn").forEach(btn => {
+        let parentNav = btn.closest(".nav-item").dataset.nav;
+        btn.classList.toggle("active",
+            parentNav === currentNav && btn.dataset.sub === currentSub);
+    });
+}
+
+/* ---- 切一级导航 ---- */
 function switchPage(pageName) {
-    navBtns.forEach(b => b.classList.remove("active"));
+    // 点一级：如果有子界面，默认进第一个
+    let sub = NAV_DEFAULT_SUB[pageName] || "";
+
+    // 记忆：如果之前在这个主界面下待过，恢复上次的子界面
+    let memoKey = "xgmcl_nav_sub_" + pageName;
+    let memo = localStorage.getItem(memoKey);
+    if (sub && memo && NAV_SUBS[pageName] && NAV_SUBS[pageName].includes(memo)) {
+        sub = memo;
+    }
+
+    if (sub) {
+        switchPageSub(pageName, sub);
+    } else {
+        applyPage(pageName, "");
+    }
+}
+
+/* ---- 切二级导航（子界面） ---- */
+function switchPageSub(pageName, sub) {
+    // 记住这个主界面下选了哪个子界面
+    localStorage.setItem("xgmcl_nav_sub_" + pageName, sub);
+    applyPage(pageName, sub);
+}
+
+/* ---- 实际应用页面切换 ---- */
+function applyPage(pageName, sub) {
+    currentNav = pageName;
+    currentSub = sub || "";
+    localStorage.setItem("xgmcl_last_nav", pageName);
+
     pages.forEach(p => p.classList.remove("active"));
-    let btn = document.querySelector(`[data-page="${pageName}"]`);
-    if (btn) btn.classList.add("active");
     let pg = document.getElementById("page-" + pageName);
     if (pg) pg.classList.add("active");
 
-    if (pageName === "settings") { resetSettingsPage(); loadAllSetting(); }
+    updateNavHighlight();
+
+    // ---- 各页面的进入逻辑 ----
+    if (pageName === "settings") {
+        loadAllSetting();
+        if (currentSub === "ui") enterSettingsSub("ui");
+        else enterSettingsSub("global");
+    }
     if (pageName === "version") refreshRoots();
     if (pageName === "download") {
-        // 自动加载版本列表（如果还没加载过）
-        if (!mojangVersions || mojangVersions.length === 0) {
-            loadMojangManifest();
-        }
+        if (!mojangVersions || mojangVersions.length === 0) loadMojangManifest();
+        if (currentSub) dlSwitchTab(currentSub, true);
     }
-
-    if (pageName === "account") { refreshAccountList(); }
-    if (pageName === "download-task") { refreshDownloadTasks(); loadDlConfig(); startDlTaskAutoRefresh(); }
-    else { stopDlTaskAutoRefresh(); }
-
+    if (pageName === "account") refreshAccountList();
+    if (pageName === "download-task") {
+        refreshDownloadTasks(); loadDlConfig(); startDlTaskAutoRefresh();
+    } else {
+        stopDlTaskAutoRefresh();
+    }
     if (pageName === "logs") {
-        if (currentLogType === "game") {
-            stopLauncherLogAutoRefresh();
-            onEnterLogPage();
-        } else if (currentLogType === "launcher") {
-            onLeaveLogPage();
-            enterLauncherLogPanel();
-        } else if (currentLogType === "other") {
-            onLeaveLogPage();
-            enterOtherLogPanel();
+        if (currentSub && currentSub !== currentLogType) {
+            switchLogType(currentSub, true);
+        } else {
+            // 首次进入或同类型，走原来的 onEnter 逻辑
+            if (currentLogType === "game") {
+                stopLauncherLogAutoRefresh();
+                onEnterLogPage();
+            } else if (currentLogType === "launcher") {
+                onLeaveLogPage();
+                enterLauncherLogPanel();
+            } else if (currentLogType === "other") {
+                onLeaveLogPage();
+                enterOtherLogPanel();
+            }
         }
     } else {
         onLeaveLogPage();
         stopLauncherLogAutoRefresh();
         stopOtherLogPolling();
     }
-
     if (pageName !== "home") stopHomePanel();
-
-    // ★ 服务端页
     if (pageName === "server") svOnEnterPage();
     else svOnLeavePage();
-
-    // ★ 主页网页设置页
+    if (pageName === "more") {
+        moreSwitchTab(currentSub || "plugins");
+    }
     if (pageName === "home-web") {
         hwRenderHistory();
         hwRenderFavorites();
     }
 }
 
-navBtns.forEach(function(btn){
-    btn.onclick = function(){
-        switchPage(this.dataset.page);
+/* ---- 绑定一级图标点击 ---- */
+navItems.forEach(item => {
+    let btn = item.querySelector(".nav-btn");
+    if (!btn) return;
+    btn.onclick = function(e) {
+        playClickAnim(this);
+        switchPage(item.dataset.nav);
+    };
+});
+
+/* ---- 绑定二级文字点击 ---- */
+document.querySelectorAll(".nav-sub-btn").forEach(btn => {
+    btn.onclick = function(e) {
+        playClickAnim(this);
+        let parentNav = this.closest(".nav-item").dataset.nav;
+        switchPageSub(parentNav, this.dataset.sub);
     };
 });
 
@@ -5947,6 +6667,9 @@ async function vdModLoadList() {
         vdModRender();
         vdModSetupDrop();   // ★ 首次进入时绑定拖拽
         vdModLog(`[INFO] 加载 ${vdModCache.length} 个 Mod${d.exists ? "" : "（mods 目录不存在）"}`);
+
+        // ★ 自动补全元数据（后台跑，不阻塞 UI）
+        vdModAutoFillMeta().catch(e => console.warn("自动补全失败:", e));
     } catch(e) {
         listEl.innerHTML = `<p class="empty-tip" style="color:#ff4757;">${escapeHtml(e.message)}</p>`;
         vdModLog("[ERROR] " + e.message);
@@ -6309,8 +7032,377 @@ function vdModUpdateCount() {
     let disabled = vdModCache.length - enabled;
     el.innerText = `共 ${vdModCache.length} 个（启用 ${enabled} / 禁用 ${disabled}）`;
 }
+/* ============ ★ Mod 元数据（Modrinth 联动） ============ */
+
+// 当前版本的元数据缓存：{project_id: meta}
+let vdModMetaCache = {};
+// 元数据是否已加载
+let vdModMetaLoaded = false;
+// 文件名 → project_id 的映射（本地 jar 名 → 元数据里的 filename 对应）
+let vdModFilenameMap = {};
+
+/* ---- 算文件的 SHA-512（浏览器原生，不用引库） ---- */
+async function vdModCalcSha512(file) {
+    // file 是 File 对象（拖拽来的）或从后端读出的 ArrayBuffer
+    let buf = await file.arrayBuffer();
+    let hashBuf = await crypto.subtle.digest("SHA-512", buf);
+    let bytes = new Uint8Array(hashBuf);
+    let hex = "";
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, "0");
+    }
+    return hex;
+}
+
+/* ---- 从后端读某个文件的二进制（为了算 hash） ---- */
+async function vdModReadFileBytes(versionName, filename, rootId) {
+    // 需要一个后端接口把文件读出来 —— 见改动 3
+    let url = `${API_URL}/version/mods/read_file?version_name=${encodeURIComponent(versionName)}` +
+              `&filename=${encodeURIComponent(filename)}&root_id=${rootId}`;
+    let res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.arrayBuffer();
+}
+
+/* ---- 加载当前版本的元数据缓存 ---- */
+async function vdModLoadMeta(force) {
+    if (vdModMetaLoaded && !force) return vdModMetaCache;
+    if (!currentDetailVersion) return {};
+    try {
+        let url = `${API_URL}/version/mods/meta_list?version_name=${encodeURIComponent(currentDetailVersion)}&root_id=${currentDetailRootId}`;
+        let res = await fetch(url);
+        let d = await res.json();
+        if (d.code === 200) {
+            vdModMetaCache = d.data || {};
+            vdModMetaLoaded = true;
+            // 重建 filename → project_id 映射
+            vdModFilenameMap = {};
+            for (let pid in vdModMetaCache) {
+                let m = vdModMetaCache[pid];
+                if (m.filename) {
+                    vdModFilenameMap[m.filename] = pid;
+                }
+            }
+        }
+    } catch(e) {
+        console.error("加载元数据失败:", e);
+    }
+    return vdModMetaCache;
+}
+
+/* ---- 自动补全：扫描本地 mod，给没元数据的用 hash 反查 ---- */
+async function vdModAutoFillMeta() {
+    if (!currentDetailVersion) return;
+    if (!vdModCache || vdModCache.length === 0) return;
+
+    await vdModLoadMeta();
+
+    // 找出没有元数据的 mod（用 filename 匹配）
+    let missing = [];
+    for (let m of vdModCache) {
+        // 有元数据（filename 匹配）→ 跳过
+        if (vdModFilenameMap[m.filename]) continue;
+        // .disabled 的文件名也要处理：算 hash 时用去掉 .disabled 的
+        missing.push(m);
+    }
+
+    if (missing.length === 0) {
+        vdModLog("[INFO] 所有 mod 都已有元数据");
+        return;
+    }
+
+    vdModLog(`[WAIT] ${missing.length} 个 mod 缺元数据，开始哈希反查...`);
+
+    // 逐个算 hash，收集
+    let hashToFile = {};   // sha512 → {filename, size}
+    for (let m of missing) {
+        try {
+            let buf = await vdModReadFileBytes(currentDetailVersion, m.filename, currentDetailRootId);
+            if (!buf) continue;
+            let hashBuf = await crypto.subtle.digest("SHA-512", buf);
+            let bytes = new Uint8Array(hashBuf);
+            let hex = "";
+            for (let i = 0; i < bytes.length; i++) {
+                hex += bytes[i].toString(16).padStart(2, "0");
+            }
+            hashToFile[hex] = { filename: m.filename, size: m.size };
+        } catch(e) {
+            console.warn("算 hash 失败:", m.filename, e);
+        }
+    }
+
+    let hashes = Object.keys(hashToFile);
+    if (hashes.length === 0) {
+        vdModLog("[WARN] 没有可反查的 hash");
+        return;
+    }
+
+    vdModLog(`[WAIT] 反查 ${hashes.length} 个 hash...`);
+
+    // 调后端批量反查
+    try {
+        let res = await fetch(`${API_URL}/modrinth/version_from_hash`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hashes }),
+        });
+        let d = await res.json();
+        if (d.code !== 200) {
+            vdModLog("[ERROR] 反查失败: " + (d.msg || ""));
+            return;
+        }
+        let map = d.data || {};
+        let newMetas = {};
+        let foundCount = 0;
+        for (let h in map) {
+            let info = map[h];
+            let fileInfo = hashToFile[h];
+            if (!fileInfo) continue;
+            let pid = info.project_id;
+            if (!pid) continue;
+            // 用当前的文件名覆盖（保持 .disabled 等后缀准确）
+            let meta = Object.assign({}, info, {
+                filename: fileInfo.filename,
+                updated_at: Math.floor(Date.now() / 1000),
+            });
+            newMetas[pid] = meta;
+            foundCount++;
+        }
+
+        if (foundCount === 0) {
+            vdModLog(`[WARN] ${hashes.length} 个 hash 都没在 Modrinth 找到`);
+            return;
+        }
+
+        // 写入后端
+        let saveRes = await fetch(`${API_URL}/version/mods/meta_save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                version_name: currentDetailVersion,
+                root_id: currentDetailRootId,
+                metas: newMetas,
+            }),
+        });
+        let saveD = await saveRes.json();
+        vdModLog(`[INFO] 补全 ${foundCount} 个 mod 元数据（${saveD.msg || ""}）`);
+
+        // 重新加载缓存
+        await vdModLoadMeta(true);
+
+    } catch(e) {
+        vdModLog("[ERROR] 补全过程异常: " + e.message);
+    }
+}
+
+/* ============ ★ 前置依赖树 ============ */
+let vdDepTreeCache = null;   // 缓存查过的依赖树
+
+async function vdOpenDepTree() {
+    if (!currentDetailVersion) return;
+
+    // 显示弹窗
+    let mask = document.getElementById("depTreeMask");
+    let body = document.getElementById("depTreeBody");
+    mask.classList.add("show");
+    body.innerHTML = `<div class="dep-tree-loading">正在查询依赖树（可能需要几秒）...</div>`;
+
+    // 拿本地 mod 的元数据
+    await vdModLoadMeta();
+    let localMetas = vdModMetaCache;   // {project_id: meta}
+
+    // 本地没有元数据的 mod 标记为"未知来源"
+    let localFiles = (vdModCache || []).map(m => ({
+        filename: m.filename,
+        enabled: m.enabled,
+        project_id: vdModFilenameMap[m.filename] || "",
+    }));
+
+    // 收集有 project_id 的
+    let allPids = [];
+    for (let pid in localMetas) {
+        if (pid) allPids.push(pid);
+    }
+
+    if (allPids.length === 0) {
+        body.innerHTML = `<div class="dep-tree-empty">没有任何 mod 有 Modrinth 元数据，无法查询依赖</div>`;
+        return;
+    }
+
+    // 查依赖树
+    let treeData;
+    try {
+        let res = await fetch(`${API_URL}/modrinth/dep_tree`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                project_ids: allPids,
+                max_depth: 3,
+            }),
+        });
+        treeData = await res.json();
+    } catch(e) {
+        body.innerHTML = `<div class="dep-tree-empty" style="color:#ff4757;">查询失败：${escapeHtml(e.message)}</div>`;
+        return;
+    }
+
+    if (treeData.code !== 200) {
+        body.innerHTML = `<div class="dep-tree-empty" style="color:#ff4757;">后端返回错误：${escapeHtml(treeData.msg || "")}</div>`;
+        return;
+    }
+
+    vdDepTreeCache = treeData;
+
+    // 渲染
+    vdRenderDepTree(body, localFiles, treeData, localMetas);
+}
+
+function vdRenderDepTree(container, localFiles, treeData, localMetas) {
+    let nodes = treeData.nodes || {};
+    let edges = treeData.edges || {};
+
+    // 已装的 project_id 集合
+    let installedPids = new Set(Object.keys(localMetas));
+
+    // 显示名字：中文优先
+    function nodeName(pid) {
+        let n = nodes[pid];
+        if (!n) return pid;
+        return n.title_cn || n.title || n.slug || pid;
+    }
+
+    // 递归渲染前置
+    // depth 从 1 开始（1 = 本地 mod 的直接前置）
+    function renderDeps(pid, depth, visited) {
+        if (depth > 3) return "";
+        let deps = edges[pid] || [];
+        if (deps.length === 0) return "";
+        let html = `<ul class="dep-tree-ul">`;
+        for (let d of deps) {
+            let depPid = d.project_id;
+            let type = d.dependency_type || "required";
+            let isInstalled = installedPids.has(depPid);
+            let cls = type;
+            if (!isInstalled) cls += " missing";
+            // 防环
+            if (visited.has(depPid)) {
+                html += `<li class="dep-tree-li"><span class="dep-node ${cls}">${escapeHtml(nodeName(depPid))}（循环依赖）</span></li>`;
+                continue;
+            }
+            let name = nodeName(depPid);
+            let tag = type === "optional" ? "[可选] "
+                    : type === "incompatible" ? "[不兼容] "
+                    : type === "embedded" ? "[内置] "
+                    : "";
+            html += `<li class="dep-tree-li">`;
+            html += `<span class="dep-node ${cls}" data-pid="${escapeHtml(depPid)}" title="${escapeHtml(name)}">${tag}${escapeHtml(name)}</span>`;
+            // 递归子前置：只有 required/embedded 且已装才往下展开（"没装的前置不展开"）
+            if (type === "required" || type === "embedded") {
+                if (isInstalled) {
+                    let newVisited = new Set(visited);
+                    newVisited.add(depPid);
+                    html += renderDeps(depPid, depth + 1, newVisited);
+                }
+            }
+            html += `</li>`;
+        }
+        html += `</ul>`;
+        return html;
+    }
+
+    let html = `<div class="dep-tree-legend">
+        <span class="dep-node required">已安装前置</span>
+        <span class="dep-node required missing">未安装前置</span>
+        <span class="dep-node optional">可选</span>
+        <span class="dep-node incompatible">不兼容</span>
+        <span class="dep-node unknown">未知来源</span>
+    </div>`;
+
+    // 本地 mod 按有没有前置分两组
+    let withDeps = [];
+    let withoutDeps = [];
+    let unknownSource = [];   // 本地没元数据的
+
+    for (let f of localFiles) {
+        let pid = f.project_id;
+        if (!pid) {
+            unknownSource.push(f);
+            continue;
+        }
+        let deps = edges[pid] || [];
+        let hasRealDeps = deps.some(d => d.dependency_type === "required" || d.dependency_type === "embedded");
+        if (hasRealDeps) {
+            withDeps.push({ file: f, pid: pid, deps: deps });
+        } else {
+            withoutDeps.push({ file: f, pid: pid });
+        }
+    }
+
+    // 第一部分：有前置的 mod
+    html += `<div class="dep-tree-section">`;
+    html += `<div class="dep-tree-section-title">有前置的 Mod（${withDeps.length}）</div>`;
+    if (withDeps.length === 0) {
+        html += `<div class="dep-tree-empty">没有 mod 有前置</div>`;
+    } else {
+        for (let item of withDeps) {
+            let name = nodeName(item.pid);
+            let fname = item.file.filename;
+            html += `<div class="dep-tree-root">`;
+            html += `<div class="dep-tree-root-name" data-pid="${escapeHtml(item.pid)}">${escapeHtml(name)}`;
+            html += `<span class="dep-tree-root-file">${escapeHtml(fname)}</span></div>`;
+            html += renderDeps(item.pid, 1, new Set([item.pid]));
+            html += `</div>`;
+        }
+    }
+    html += `</div>`;
+
+    // 第二部分：没有前置的 mod
+    html += `<div class="dep-tree-section">`;
+    html += `<div class="dep-tree-section-title">没有前置的 Mod（${withoutDeps.length}）</div>`;
+    if (withoutDeps.length === 0) {
+        html += `<div class="dep-tree-empty">—</div>`;
+    } else {
+        html += `<ul class="dep-tree-ul">`;
+        for (let item of withoutDeps) {
+            let name = nodeName(item.pid);
+            html += `<li class="dep-tree-li"><span class="dep-node required" data-pid="${escapeHtml(item.pid)}">${escapeHtml(name)}</span></li>`;
+        }
+        html += `</ul>`;
+    }
+    html += `</div>`;
+
+    // 第三部分：未知来源（本地没元数据的）
+    if (unknownSource.length > 0) {
+        html += `<div class="dep-tree-section">`;
+        html += `<div class="dep-tree-section-title">未知来源（${unknownSource.length}）</div>`;
+        html += `<ul class="dep-tree-ul">`;
+        for (let f of unknownSource) {
+            html += `<li class="dep-tree-li"><span class="dep-node unknown">${escapeHtml(f.filename)}</span></li>`;
+        }
+        html += `</ul>`;
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
+
+    // 绑定点击：跳 Mod 详情
+    container.querySelectorAll("[data-pid]").forEach(el => {
+        el.onclick = () => {
+            let pid = el.dataset.pid;
+            if (!pid) return;
+            let n = nodes[pid];
+            modOpenDetail(pid, n ? (n.title_cn || n.title) : "", n ? n.icon_url : "", "dep_tree");
+        };
+    });
+}
+
+function vdCloseDepTree() {
+    let mask = document.getElementById("depTreeMask");
+    if (mask) mask.classList.remove("show");
+}
 
 /* ============ ★ 拖拽导入 Mod ============ */
+
 function vdModSetupDrop() {
     let listEl = document.getElementById("vdModList");
     if (!listEl || listEl.__dropBound) return;
@@ -7030,21 +8122,17 @@ async function resetVersionCfg(){
     }
 }
 
-/* ============ 设置页：主页 ↔ 子页 ============ */
+/* ============ 设置页：子页切换 ============ */
 function enterSettingsSub(which) {
-    document.getElementById("settingsHome").style.display = "none";
     document.getElementById("settingsSubGlobal").style.display = (which === "global") ? "" : "none";
     document.getElementById("settingsSubUi").style.display = (which === "ui") ? "" : "none";
 }
 
-function backToSettingsHome() {
-    document.getElementById("settingsSubGlobal").style.display = "none";
-    document.getElementById("settingsSubUi").style.display = "none";
-    document.getElementById("settingsHome").style.display = "";
-}
-
-function resetSettingsPage() {
-    backToSettingsHome();
+/* ============ 更多页：子界面切换 ============ */
+function moreSwitchTab(sub) {
+    document.getElementById("morePanelPlugins").style.display = (sub === "plugins") ? "" : "none";
+    document.getElementById("morePanelSource").style.display  = (sub === "source")  ? "" : "none";
+    document.getElementById("morePanelAbout").style.display   = (sub === "about")   ? "" : "none";
 }
 
 /* ============ 全局设置 ============ */
@@ -8377,11 +9465,8 @@ async function backToTail() {
 /* ============ 启动器日志 ============ */
 let currentLogType = "game";
 
-function switchLogType(type) {
+function switchLogType(type, silent) {
     currentLogType = type;
-    document.querySelectorAll(".log-tab").forEach(t => {
-        t.classList.toggle("active", t.dataset.logType === type);
-    });
     document.getElementById("logPanelGame").style.display = (type === "game") ? "" : "none";
     document.getElementById("logPanelLauncher").style.display = (type === "launcher") ? "" : "none";
     document.getElementById("logPanelOther").style.display = (type === "other") ? "" : "none";
@@ -9263,13 +10348,31 @@ function syncHomeQuickButtons() {
 
 function applyAppearance(cfg) {
     if (!cfg) return;
+    let root = document.documentElement;
+
     document.body.classList.toggle("aesthetic-glass", !!cfg.glass);
     document.body.classList.toggle("aesthetic-liquid", !!cfg.liquid);
     applyQuickbarState(cfg.show_quickbar !== false);
     applyGlobalBg(cfg);
 
+    // ★ 导航栏图标色
+    if (cfg.nav_icon_color) {
+        root.style.setProperty("--nav-icon-color", cfg.nav_icon_color);
+    } else {
+        root.style.removeProperty("--nav-icon-color");
+    }
+    if (cfg.nav_icon_active_color) {
+        root.style.setProperty("--nav-icon-active-color", cfg.nav_icon_active_color);
+    } else {
+        root.style.removeProperty("--nav-icon-active-color");
+    }
+    if (cfg.nav_icon_hover_color) {
+        root.style.setProperty("--nav-icon-hover-color", cfg.nav_icon_hover_color);
+    } else {
+        root.style.removeProperty("--nav-icon-hover-color");
+    }
+
     let globalA = (cfg.btn_alpha ?? 100) / 100;
-    let root = document.documentElement;
 
     let setA = (key, val) => {
         let v = (val === null || val === undefined) ? globalA : (val / 100);
@@ -9411,6 +10514,47 @@ function syncAppearanceInputs(cfg) {
         let blurText = document.getElementById("globalBgBlurText");
         if (blurText) blurText.innerText = blur;
     }
+
+    // ★ 导航栏图标色
+    let navIcon = document.getElementById("navIconColor");
+    let navIconVal = document.getElementById("navIconColorVal");
+    if (navIcon && navIconVal) {
+        if (cfg.nav_icon_color) {
+            navIcon.value = cfg.nav_icon_color;
+            navIconVal.innerText = cfg.nav_icon_color;
+            navIconVal.style.color = "#ccc";
+        } else {
+            navIcon.value = "#444444";
+            navIconVal.innerText = "自动";
+            navIconVal.style.color = "#888";
+        }
+    }
+    let navIconActive = document.getElementById("navIconActiveColor");
+    let navIconActiveVal = document.getElementById("navIconActiveColorVal");
+    if (navIconActive && navIconActiveVal) {
+        if (cfg.nav_icon_active_color) {
+            navIconActive.value = cfg.nav_icon_active_color;
+            navIconActiveVal.innerText = cfg.nav_icon_active_color;
+            navIconActiveVal.style.color = "#ccc";
+        } else {
+            navIconActive.value = "#4FC3F7";
+            navIconActiveVal.innerText = "自动";
+            navIconActiveVal.style.color = "#888";
+        }
+    }
+    let navIconHover = document.getElementById("navIconHoverColor");
+    let navIconHoverVal = document.getElementById("navIconHoverColorVal");
+    if (navIconHover && navIconHoverVal) {
+        if (cfg.nav_icon_hover_color) {
+            navIconHover.value = cfg.nav_icon_hover_color;
+            navIconHoverVal.innerText = cfg.nav_icon_hover_color;
+            navIconHoverVal.style.color = "#ccc";
+        } else {
+            navIconHover.value = "#555555";
+            navIconHoverVal.innerText = "自动";
+            navIconHoverVal.style.color = "#888";
+        }
+    }
 }
 
 async function saveAppearance() {
@@ -9462,6 +10606,89 @@ function applyGlobalBg(cfg) {
         layer.style.backgroundImage = "";
         layer.classList.remove("show");
     }
+}
+
+/* ---- 导航栏图标色 ---- */
+let _navIconColorTimer = null;
+function onNavIconColorChange() {
+    let v = document.getElementById("navIconColor").value;
+    document.getElementById("navIconColorVal").innerText = v;
+    document.getElementById("navIconColorVal").style.color = "#ccc";
+    document.documentElement.style.setProperty("--nav-icon-color", v);
+
+    if (_navIconColorTimer) clearTimeout(_navIconColorTimer);
+    _navIconColorTimer = setTimeout(async () => {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_color=${encodeURIComponent(v)}`);
+        let d = await res.json();
+        if (d.code === 200) _appearance = d.data;
+    }, 350);
+}
+
+async function clearNavIconColor() {
+    try {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_color=`);
+        let d = await res.json();
+        if (d.code === 200) {
+            _appearance = d.data;
+            applyAppearance(_appearance);
+            syncAppearanceInputs(_appearance);
+        }
+    } catch(e) {}
+}
+
+let _navIconActiveColorTimer = null;
+function onNavIconActiveColorChange() {
+    let v = document.getElementById("navIconActiveColor").value;
+    document.getElementById("navIconActiveColorVal").innerText = v;
+    document.getElementById("navIconActiveColorVal").style.color = "#ccc";
+    document.documentElement.style.setProperty("--nav-icon-active-color", v);
+
+    if (_navIconActiveColorTimer) clearTimeout(_navIconActiveColorTimer);
+    _navIconActiveColorTimer = setTimeout(async () => {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_active_color=${encodeURIComponent(v)}`);
+        let d = await res.json();
+        if (d.code === 200) _appearance = d.data;
+    }, 350);
+}
+
+async function clearNavIconActiveColor() {
+    try {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_active_color=`);
+        let d = await res.json();
+        if (d.code === 200) {
+            _appearance = d.data;
+            applyAppearance(_appearance);
+            syncAppearanceInputs(_appearance);
+        }
+    } catch(e) {}
+}
+
+/* ---- 导航栏悬停色 ---- */
+let _navIconHoverColorTimer = null;
+function onNavIconHoverColorChange() {
+    let v = document.getElementById("navIconHoverColor").value;
+    document.getElementById("navIconHoverColorVal").innerText = v;
+    document.getElementById("navIconHoverColorVal").style.color = "#ccc";
+    document.documentElement.style.setProperty("--nav-icon-hover-color", v);
+
+    if (_navIconHoverColorTimer) clearTimeout(_navIconHoverColorTimer);
+    _navIconHoverColorTimer = setTimeout(async () => {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_hover_color=${encodeURIComponent(v)}`);
+        let d = await res.json();
+        if (d.code === 200) _appearance = d.data;
+    }, 350);
+}
+
+async function clearNavIconHoverColor() {
+    try {
+        let res = await fetch(`${API_URL}/appearance/save?nav_icon_hover_color=`);
+        let d = await res.json();
+        if (d.code === 200) {
+            _appearance = d.data;
+            applyAppearance(_appearance);
+            syncAppearanceInputs(_appearance);
+        }
+    } catch(e) {}
 }
 
 async function browseGlobalBg() {
@@ -9667,7 +10894,7 @@ function applyHomeWeb(url) {
         hwLog(`已加载：${url}`);
         // 更新 URL 栏
         let bar = document.getElementById("homeWebUrlBar");
-        if (bar) bar.innerText = url;
+        if (bar) bar.value = url;
         // 等加载完再更新按钮状态
         setTimeout(() => {
             homeWebUpdateUrlBar();
@@ -10074,8 +11301,85 @@ function homeWebUpdateUrlBar() {
     if (!wv || !bar) return;
     try {
         let url = wv.getURL ? wv.getURL() : "";
-        if (url) bar.innerText = url;
+        if (url) bar.value = url;
     } catch(e) {}
+}
+
+/* ★ 地址栏回车 → 强制加载 */
+function homeWebUrlKeydown(e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    homeWebUrlCommit(true);
+}
+
+/* ★ 失焦 → 值变了才加载，没变不动 */
+function homeWebUrlBlur() {
+    homeWebUrlCommit(false);
+}
+
+/* ★ 实际执行：force=true 强制加载；force=false 只在值变时加载 */
+async function homeWebUrlCommit(force) {
+    let input = document.getElementById("homeWebUrlBar");
+    let wv = homeWebGetView();
+    if (!input) return;
+
+    let raw = (input.value || "").trim();
+
+    let currentUrl = "";
+    try {
+        currentUrl = (wv && wv.getURL) ? wv.getURL() : "";
+    } catch(e) {}
+
+    // 没填 → 还原，不动
+    if (!raw) {
+        if (currentUrl) input.value = currentUrl;
+        return;
+    }
+
+    // file:// 拦掉
+    if (raw.startsWith("file://")) {
+        hwLog("[WARN] file:// 不支持，已忽略");
+        if (currentUrl) input.value = currentUrl;
+        return;
+    }
+
+    // 没协议头补 https://
+    let url = raw;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
+    }
+
+    // 失焦时：跟当前 URL 一样 → 不动
+    if (!force && url === currentUrl) {
+        return;
+    }
+
+    try {
+        let res = await fetch(`${API_URL}/home/web/set_url?url=${encodeURIComponent(url)}`);
+        let d = await res.json();
+        if (d.code !== 200) {
+            hwLog(`设置 URL 失败：${d.msg || ""}`);
+            if (currentUrl) input.value = currentUrl;
+            return;
+        }
+        homeWebCurrentUrl = d.data.web_url;
+        input.value = homeWebCurrentUrl;
+
+        if (wv) {
+            try { wv.src = homeWebCurrentUrl; } catch(err) {
+                console.warn("homeWebUrlCommit load:", err);
+            }
+        }
+
+        // 同步设置页的输入框
+        let settingsInput = document.getElementById("hwUrlInput");
+        if (settingsInput) settingsInput.value = homeWebCurrentUrl;
+
+        hwLog(`已加载：${homeWebCurrentUrl}`);
+    } catch(err) {
+        hwLog(`请求失败：${err.message}`);
+        if (currentUrl) input.value = currentUrl;
+    }
 }
 
 function homeWebUpdateNavBtns() {
@@ -10918,36 +12222,84 @@ let modQuery = "";
 let modMcVer = "";
 let modLoader = "";
 let modSort = "relevance";
-let modAutoLoaded = false;
 
-function dlSwitchTab(tab) {
-    document.querySelectorAll("[data-dl-tab]").forEach(t => {
-        t.classList.toggle("active", t.dataset.dlTab === tab);
-    });
+function dlSwitchTab(tab, silent) {
+    // silent=true 时只切面板，不重复触发导航（左侧栏已经切过了）
     document.getElementById("dlPanelVanilla").style.display = (tab === "vanilla") ? "" : "none";
-    document.getElementById("dlPanelMod").style.display     = (tab === "mod")     ? "" : "none";
+    document.getElementById("dlPanelMod").style.display     = (tab === "mod")     ? "flex" : "none";
     document.getElementById("dlPanelMine").style.display    = (tab === "mine")    ? "" : "none";
 
     if (tab === "mod") {
-        modOauthRefreshStatus();
-        modFillMcVerFilter();
-        if (!modAutoLoaded) {
-            modAutoLoaded = true;
-            setTimeout(() => { modDoSearch(); }, 100);
-        }
+        (async () => {
+            await modFillMcVerFilter();
+            let list = document.getElementById("modResultList");
+            let isEmpty = !list || list.querySelector(".empty-tip");
+            if (isEmpty) modDoSearch();
+        })();
     }
     if (tab === "mine") {
+        modOauthRefreshStatus();
         modRenderMine();
     }
 }
 
+/* ★ 常用 MC 版本（PCL 风格 + 可手动输入） */
+const MOD_COMMON_MC_VERSIONS = [
+    "26.2", "1.21.11", "1.21.1", "1.20.1", "1.19.4", "1.12.2", "1.7.10",
+];
+
 async function modFillMcVerFilter() {
+    console.log("[modFillMcVerFilter] called, filled =", document.getElementById("modFilterMcVer").dataset.filled);
     // 从当前版本的 mc_version_id 填默认值
     let sel = document.getElementById("modFilterMcVer");
-    if (sel.dataset.filled === "1") return;
+    if (sel.dataset.filled === "1") {
+        console.log("[modFillMcVerFilter] already filled, return");
+        return;
+    }
     sel.dataset.filled = "1";
+
+    // ★ 先塞常用版本 + "全部" + "自定义"
+    sel.innerHTML = "";
+    let oAll = document.createElement("option");
+    oAll.value = "";
+    oAll.textContent = "全部 MC 版本";
+    sel.appendChild(oAll);
+
+    for (let v of MOD_COMMON_MC_VERSIONS) {
+        let o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+    }
+
+    // "自定义" 选项：选中后弹输入框
+    let oCustom = document.createElement("option");
+    oCustom.value = "__custom__";
+    oCustom.textContent = "自定义...";
+    sel.appendChild(oCustom);
+
+    // 选中「自定义」时弹输入
+    sel.onchange = function() {
+        if (this.value === "__custom__") {
+            let v = prompt("输入 MC 版本号（例如 1.20.1）：", "");
+            if (v && v.trim()) {
+                v = v.trim();
+                // 插到 "全部" 后面
+                let o = document.createElement("option");
+                o.value = v;
+                o.textContent = v + "（自定义）";
+                sel.insertBefore(o, sel.options[1]);
+                sel.value = v;
+            } else {
+                sel.value = "";
+            }
+        }
+        modMcVer = sel.value;
+        modDoSearch();
+    };
+
+    // ★ 如果当前版本有 mc_version_id，优先选中它
     try {
-        // 复用已有 selectVersionFull / 当前选中版本
         if (selectVersionFull) {
             let url = `${API_URL}/version/detail?version_name=${encodeURIComponent(selectVersionFull)}&root_id=${selectRootId}`;
             let r = await fetch(url);
@@ -10955,10 +12307,14 @@ async function modFillMcVerFilter() {
             if (d.code === 200) {
                 let mc = d.data.mc_version_id || d.data.game_version || "";
                 if (mc) {
-                    let o = document.createElement("option");
-                    o.value = mc;
-                    o.textContent = mc + "（当前）";
-                    sel.appendChild(o);
+                    // 如果常用列表里没有，插进去
+                    let exists = Array.from(sel.options).some(o => o.value === mc);
+                    if (!exists) {
+                        let o = document.createElement("option");
+                        o.value = mc;
+                        o.textContent = mc + "（当前）";
+                        sel.insertBefore(o, sel.options[1]);
+                    }
                     sel.value = mc;
                     modMcVer = mc;
                 }
@@ -10970,13 +12326,19 @@ async function modFillMcVerFilter() {
                 }
             }
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error("[modFillMcVerFilter] error:", e);
+    }
+    console.log("[modFillMcVerFilter] done, options count =", sel.options.length, "value =", sel.value);
 }
 
 async function modDoSearch() {
+    console.log("[modDoSearch] called");
     let q = document.getElementById("modSearchInput").value.trim();
     modQuery = q;
-    modMcVer = document.getElementById("modFilterMcVer").value || "";
+    let mcSel = document.getElementById("modFilterMcVer");
+    // 自定义选项没选具体值时当空
+    modMcVer = (mcSel.value && mcSel.value !== "__custom__") ? mcSel.value : "";
     modLoader = document.getElementById("modFilterLoader").value || "";
     let sortEl = document.getElementById("modFilterSort");
     modSort = sortEl ? (sortEl.value || "relevance") : "relevance";
@@ -11010,10 +12372,15 @@ async function modFetchPage() {
 
 function modRenderResults(hits) {
     let list = document.getElementById("modResultList");
+    // ★ 先取出分页键（它是静态 DOM，删了就没了）
+    let pag = document.getElementById("modPagination");
+
     if (!hits || hits.length === 0) {
         list.innerHTML = `<p class="empty-tip">没有找到匹配的 Mod</p>`;
+        if (pag) list.appendChild(pag);
         return;
     }
+
     list.innerHTML = "";
     for (let h of hits) {
         let card = document.createElement("div");
@@ -11038,23 +12405,50 @@ function modRenderResults(hits) {
         card.onclick = () => modOpenDetail(h.project_id, h.title, h.icon_url);
         list.appendChild(card);
     }
+    // ★ 把分页键放回列表末尾
+    if (pag) list.appendChild(pag);
 }
 
 function modRenderPagination() {
     let totalPages = Math.max(1, Math.ceil(modTotalHits / modPageSize));
-    let pag = document.getElementById("modPagination");
-    let info = document.getElementById("modPageInfo");
-    let prev = document.getElementById("modPrevBtn");
-    let next = document.getElementById("modNextBtn");
 
+    let pag      = document.getElementById("modPagination");
+    let info     = document.getElementById("modPageInfo");
+    let prev     = document.getElementById("modPrevBtn");
+    let next     = document.getElementById("modNextBtn");
+    let firstBtn = document.getElementById("modFirstBtn");
+
+    let tPag   = document.getElementById("modToolbarPager");
+    let tInfo  = document.getElementById("modToolbarPageInfo");
+    let tPrev  = document.getElementById("modToolbarPrev");
+    let tNext  = document.getElementById("modToolbarNext");
+    let tFirst = document.getElementById("modToolbarFirst");
+
+    // 只有 1 页 → 两套都隐藏
     if (modTotalHits <= modPageSize) {
-        pag.style.display = "none";
+        if (pag)  pag.style.display  = "none";
+        if (tPag) tPag.style.display = "none";
         return;
     }
-    pag.style.display = "";
-    info.innerText = `第 ${modCurrentPage} / ${totalPages} 页（共 ${modTotalHits} 个）`;
-    prev.disabled = (modCurrentPage <= 1);
-    next.disabled = (modCurrentPage >= totalPages);
+
+    // 显示两套
+    if (pag)  pag.style.display  = "";
+    if (tPag) tPag.style.display = "";
+
+    let infoText = `${modCurrentPage}/${totalPages}`;
+    if (info)  info.innerText  = infoText;
+    if (tInfo) tInfo.innerText = infoText;
+
+    let atFirst = (modCurrentPage <= 1);
+    let atLast  = (modCurrentPage >= totalPages);
+
+    if (prev)   prev.disabled   = atFirst;
+    if (firstBtn) firstBtn.disabled = atFirst;
+    if (tPrev)  tPrev.disabled  = atFirst;
+    if (tFirst) tFirst.disabled = atFirst;
+
+    if (next)   next.disabled   = atLast;
+    if (tNext)  tNext.disabled  = atLast;
 }
 
 function modPrevPage() {
@@ -11067,6 +12461,13 @@ function modNextPage() {
     let totalPages = Math.max(1, Math.ceil(modTotalHits / modPageSize));
     if (modCurrentPage >= totalPages) return;
     modCurrentPage++;
+    modFetchPage();
+}
+
+/* ★ 回到第一页：直接重新搜索一遍相同内容 */
+function modFirstPage() {
+    if (modCurrentPage === 1) return;
+    modCurrentPage = 1;
     modFetchPage();
 }
 
@@ -11415,6 +12816,9 @@ window.onload = async function(){
     await loadTheme();
     await refreshAccountList();
     XgSelect.enhanceAll();   // ★ 自绘下拉初始化（静态的立刻增强）
+
+    // ★ 恢复上次的导航状态（默认主页）
+    switchPage(localStorage.getItem("xgmcl_last_nav") || "home");
 
     // ★ 启动器启动时静默检查一次选中账户的 token
     setTimeout(async () => {
@@ -12143,6 +13547,19 @@ function svLog(elId, msg) {
                 data-i18n="account.pickProfileConfirm">确认登录</button>
         <button class="close-btn" style="background:var(--accent2); margin-top:10px;"
                 onclick="cancelLsPick()" data-i18n="account.littleskinCancel">取消</button>
+    </div>
+</div>
+
+<!-- ★ 前置依赖树弹窗 -->
+<div class="about-mask" id="depTreeMask">
+    <div class="dep-tree-box">
+        <div class="dep-tree-header">
+            <h2>前置依赖树</h2>
+            <button class="dep-tree-close" onclick="vdCloseDepTree()">×</button>
+        </div>
+        <div class="dep-tree-body" id="depTreeBody">
+            <div class="dep-tree-loading">加载中...</div>
+        </div>
     </div>
 </div>
 
