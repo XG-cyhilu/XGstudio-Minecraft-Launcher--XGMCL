@@ -59,7 +59,7 @@ Currently in **beta**.
 
 ## License
 
-MIT
+AGPLv3.0
 
 ---
 
