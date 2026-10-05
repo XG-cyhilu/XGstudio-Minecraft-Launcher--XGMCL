@@ -8,33 +8,51 @@ Built with **Electron + Node.js**.
 
 Created by an individual developer (XG).
 
-Currently in **beta**.
+Currently in **Beta**.
 
 ---
 
 ## Table of Contents
 
 - [Tech Stack](#tech-stack)
+- [NT Architecture](#nt-architecture)
 - [Status](#status)
 - [License](#license)
-- [Credits](#Credits)
+- [Author](#author)
+- [Credits](#credits)
 
 ---
 
 ## Tech Stack
 
-| Layer     | Technology            |
-|-----------|-----------------------|
-| Backend   | Node.js (main process) |
+| Layer     | Technology              |
+|-----------|-------------------------|
+| Backend   | Node.js (main process)  |
 | Frontend  | HTML / CSS / JavaScript |
-| Desktop   | Electron              |
-| Packaging | electron-builder      |
+| Desktop   | Electron                |
+| Packaging | electron-builder        |
+
+---
+
+## NT Architecture
+
+> Migrating the original XGstudioMinecraftLauncher (py + js architecture) to a faster and more stable NT architecture.
+
+| Item | Old Architecture | NT Architecture |
+|------|------------------|-----------------|
+| Backend | Python | Node.js |
+| Backend file count | 7 | 32 |
+| Backend load time | ≈ 9s | 0s |
+| Backend call time | ≈ 3s | ≈ 0.6s |
+| Total startup (init) time | ≈ 16s | ≈ 8s |
+| Total startup time improvement | — | 2× faster |
+| Tech stack cohesion | Low (FastAPI) | Very high |
 
 ---
 
 ## Status
 
-> **Beta** — the launcher is under active development. Features may change, bugs may exist.
+> **Beta (public test)** — the launcher is under active development. Features may change, bugs may exist.
 
 ---
 
@@ -51,3 +69,8 @@ AGPLv3.0
 ## Credits
 
 - Mod Chinese name data is sourced from **Plain Craft Launcher** (by 龙腾猫跃).
+- Thanks to the authors of the two third-party libraries.
+- Thanks to **mmmawa** for bug testing (born bug magnet).
+- Thanks to **Xiao_yugg_** for titlebar feedback.
+- Thanks to **Sodium雷雳** for titlebar feedback.
+- Thanks to all members of the official group!
