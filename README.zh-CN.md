@@ -27,10 +27,10 @@
 
 | 层       | 技术                     |
 |----------|--------------------------|
-| 后端     | Node.js（主进程）         |
-| 前端     | HTML / CSS / JavaScript  |
-| 桌面框架 | Electron                 |
-| 打包     | electron-builder         |
+| 后端   | Node.js（主进程）   |
+| 前端   | HTML / CSS / JavaScript |
+| 桌面框架 | Electron       |
+| 打包  | electron-builder     |
 
 ---
 
