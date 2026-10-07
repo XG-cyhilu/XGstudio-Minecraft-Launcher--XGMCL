@@ -69,9 +69,9 @@ AGPLv3.0
 ## Credits
 
 - Mod Chinese name data is sourced from **Plain Craft Launcher** (by 龙腾猫跃).
-- Thanks to all the open-source libraries and their contributors that this project depends on (see `package.json` for details).
+- Thanks to **all the open-source libraries and their contributors** that this project depends on (see `package.json` for details).
 - Thanks to **mmmawa** for bug testing (born bug magnet).
 - Thanks to **Xiao_yugg_** for titlebar feedback.
 - Thanks to **Sodium雷雳** for titlebar feedback.
-- Thanks to CHLJH for pointing out the issue that the launcher's color presets were not clear enough. It has now been fixed.
-- Thanks to all members of the official group!
+- Thanks to **CHLJH** for pointing out the issue that the launcher's color presets were not clear enough. It has now been fixed.
+- Thanks to **all members of the official group**!
