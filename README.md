@@ -73,4 +73,5 @@ AGPLv3.0
 - Thanks to **mmmawa** for bug testing (born bug magnet).
 - Thanks to **Xiao_yugg_** for titlebar feedback.
 - Thanks to **Sodium雷雳** for titlebar feedback.
+- Thanks to CHLJH for pointing out the issue that the launcher's color presets were not clear enough. It has now been fixed.
 - Thanks to all members of the official group!
