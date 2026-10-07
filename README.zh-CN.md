@@ -69,7 +69,7 @@ AGPLv3.0
 ## 致谢
 
 - Mod 中文名数据来源于 **Plain Craft Launcher**（作者：龙腾猫跃）。
-- 感谢两个第三方库的作者。
+- 感谢本项目依赖的所有开源库及其贡献者（详见 `package.json`）
 - 感谢来自 mmmawa 的 Bug 测试（先天 bug 圣体）
 - 感谢来自 Xiao_yugg_ 的标题栏意见
 - 感谢来自 Sodium雷雳 的标题栏意见
