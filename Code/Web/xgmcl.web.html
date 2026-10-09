@@ -1,0 +1,2879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XGstudio Minecraft Launcher — 开源 · 现代 · 快速</title>
+<meta name="description" content="XGstudio Minecraft Launcher (XGMCL) —— 基于 Electron + Node.js 构建的开源、现代化 Minecraft 启动器。">
+<style>
+/* ============================================================
+   全局变量
+   ============================================================ */
+:root {
+  --brand: #4FC3F7;
+  --brand-dark: #2196C9;
+  --brand-glow: rgba(79, 195, 247, 0.45);
+  --brand-soft: rgba(79, 195, 247, 0.12);
+  --brand-border: rgba(79, 195, 247, 0.28);
+
+  --bg-deep: #0A0E14;
+  --bg-card: #121821;
+  --bg-card-hover: #161E2A;
+  --bg-elev: #0E141C;
+
+  --text-main: #EAF2F8;
+  --text-sub: #8FA3B5;
+  --text-dim: #5C6E7D;
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  --green: #4ADE80;
+  --orange: #FF9F43;
+  --red: #FF5F57;
+
+  --font: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+
+  --nav-h: 64px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --maxw: 1180px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-deep);
+  color: var(--text-main);
+  line-height: 1.65;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(79,195,247,0.10) 0%, transparent 36%),
+    radial-gradient(circle at 88% 72%, rgba(79,195,247,0.06) 0%, transparent 42%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.016) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 15%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 15%, transparent 78%);
+}
+
+.container {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   导航栏
+   ============================================================ */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(10, 14, 20, 0.82);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--nav-h);
+  gap: 1rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+.logo-cube {
+  width: 34px; height: 34px;
+  background: var(--brand);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 3px;
+  padding: 5px;
+  box-shadow: 0 0 18px var(--brand-glow);
+  transition: transform .35s ease, box-shadow .35s ease;
+}
+.logo:hover .logo-cube {
+  transform: rotate(90deg) scale(1.06);
+  box-shadow: 0 0 28px var(--brand-glow);
+}
+.logo-cube span { background: rgba(10,14,20,0.85); border-radius: 2px; }
+.logo-cube span:nth-child(1) { background: rgba(10,14,20,0.55); }
+.logo-cube span:nth-child(4) { background: rgba(10,14,20,0.95); }
+
+.logo-text b { color: var(--brand); }
+
+.nav-links {
+  display: flex;
+  gap: 0.3rem;
+  list-style: none;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-links a {
+  color: var(--text-sub);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: color .2s ease, background .2s ease;
+}
+.nav-links a:hover {
+  color: var(--text-main);
+  background: rgba(255,255,255,0.04);
+}
+.nav-links a.active {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.lang-switch {
+  display: flex;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.lang-switch button {
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.42rem 0.7rem;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+  letter-spacing: 0.02em;
+}
+.lang-switch button:hover { color: var(--text-main); }
+.lang-switch button.active {
+  background: var(--brand);
+  color: #06131C;
+}
+
+/* ============================================================
+   按钮
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.7rem;
+  border-radius: 10px;
+  font-size: 0.93rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all .25s cubic-bezier(.2,0,0,1);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: #06131C;
+  box-shadow: 0 6px 22px -6px var(--brand-glow);
+}
+.btn-primary:hover {
+  background: #6FD0FA;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -6px var(--brand-glow);
+}
+.btn-primary:active { transform: translateY(-2px) scale(0.98); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+}
+.btn-ghost:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+  transform: translateY(-2px);
+}
+
+.btn-sm { padding: 0.5rem 1.1rem; font-size: 0.85rem; }
+.btn-lg { padding: 0.95rem 2.2rem; font-size: 1rem; }
+
+/* ============================================================
+   徽章
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 100px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--brand-soft);
+  color: var(--brand);
+  border: 1px solid var(--brand-border);
+  text-transform: uppercase;
+}
+.badge .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 8px var(--brand);
+  animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .45; transform: scale(0.82); }
+}
+
+.badge.warn {
+  background: rgba(255,159,67,0.12);
+  color: var(--orange);
+  border-color: rgba(255,159,67,0.3);
+}
+.badge.warn .dot { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+
+.badge.green {
+  background: rgba(74,222,128,0.12);
+  color: var(--green);
+  border-color: rgba(74,222,128,0.3);
+}
+.badge.green .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ============================================================
+   页面切换
+   ============================================================ */
+.page { display: none; }
+.page.active { display: block; animation: pageIn .4s ease; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   通用区块
+   ============================================================ */
+section { padding: 4.5rem 0; position: relative; }
+
+.sec-head {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 3rem;
+}
+.sec-head .badge { margin-bottom: 1rem; }
+.sec-head h2 {
+  font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.85rem;
+  line-height: 1.2;
+}
+.sec-head p {
+  color: var(--text-sub);
+  font-size: 1.02rem;
+}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero {
+  padding: 5rem 0 4rem;
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 3.5rem;
+  align-items: center;
+}
+
+.hero h1 {
+  font-size: clamp(2.2rem, 4.8vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin: 1.4rem 0 1.2rem;
+}
+.hero h1 .hl {
+  color: var(--brand);
+  text-shadow: 0 0 36px var(--brand-glow);
+  white-space: nowrap;
+}
+
+.hero p.lead {
+  font-size: 1.1rem;
+  color: var(--text-sub);
+  max-width: 540px;
+  margin-bottom: 2rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-bottom: 2.2rem;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.86rem;
+  color: var(--text-sub);
+}
+.hero-meta span { display: flex; align-items: center; gap: 0.45rem; }
+.hero-meta svg { color: var(--brand); flex-shrink: 0; }
+
+.hero-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.launcher-window {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px -20px rgba(0,0,0,0.85), 0 0 0 1px rgba(79,195,247,0.06);
+  animation: floatY 7s ease-in-out infinite;
+}
+@keyframes floatY {
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(-12px); }
+}
+
+.win-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.win-bar i {
+  width: 11px; height: 11px; border-radius: 50%;
+  display: block;
+}
+.win-bar i:nth-child(1) { background: #FF5F57; }
+.win-bar i:nth-child(2) { background: #FEBC2E; }
+.win-bar i:nth-child(3) { background: #28C840; }
+.win-bar .win-title {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-sub);
+  font-family: var(--mono);
+}
+
+.win-body { padding: 1.4rem 1.3rem 1.6rem; }
+
+.win-hero {
+  height: 96px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(79,195,247,0.22), rgba(79,195,247,0.05));
+  border: 1px solid rgba(79,195,247,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+  position: relative;
+  overflow: hidden;
+}
+.win-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, transparent 48%, rgba(79,195,247,0.15) 48%, rgba(79,195,247,0.15) 52%, transparent 52%),
+    linear-gradient(transparent 48%, rgba(79,195,247,0.15) 48%, rgba(79,195,247,0.15) 52%, transparent 52%);
+  background-size: 24px 24px;
+  opacity: .5;
+}
+.win-hero span {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--brand);
+  letter-spacing: -0.04em;
+  z-index: 1;
+  text-shadow: 0 0 26px var(--brand-glow);
+}
+
+.win-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.62rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+.win-row:last-of-type { border-bottom: none; }
+.win-row .k { color: var(--text-sub); }
+.win-row .v { color: var(--text-main); font-weight: 600; font-family: var(--mono); font-size: 0.8rem; }
+.win-row .v.ok { color: var(--green); }
+
+.win-progress {
+  margin-top: 1.2rem;
+  height: 8px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.win-progress i {
+  display: block;
+  height: 100%;
+  width: 72%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--brand-dark), var(--brand));
+  box-shadow: 0 0 14px var(--brand-glow);
+  animation: loadBar 3.2s ease-in-out infinite;
+}
+@keyframes loadBar {
+  0%   { width: 12%; }
+  50%  { width: 88%; }
+  100% { width: 12%; }
+}
+
+/* ============================================================
+   特性卡片
+   ============================================================ */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.4rem;
+}
+
+.feat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.6rem;
+  transition: all .3s cubic-bezier(.2,0,0,1);
+  position: relative;
+  overflow: hidden;
+}
+.feat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.feat:hover {
+  transform: translateY(-5px);
+  background: var(--bg-card-hover);
+  border-color: var(--brand-border);
+  box-shadow: 0 20px 40px -16px rgba(0,0,0,0.75);
+}
+.feat:hover::before { opacity: 1; }
+
+.feat-icon {
+  width: 48px; height: 48px;
+  border-radius: 13px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand);
+  margin-bottom: 1.15rem;
+}
+
+.feat h3 {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin-bottom: 0.55rem;
+  letter-spacing: -0.01em;
+}
+.feat p {
+  color: var(--text-sub);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   NT 架构对比
+   ============================================================ */
+.nt-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.nt-text h2 {
+  font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  margin: 1rem 0 1rem;
+  line-height: 1.2;
+}
+.nt-text > p {
+  color: var(--text-sub);
+  margin-bottom: 1.6rem;
+  font-size: 0.98rem;
+}
+
+.nt-points { list-style: none; display: flex; flex-direction: column; gap: 0.85rem; }
+.nt-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  font-size: 0.93rem;
+  color: var(--text-main);
+}
+.nt-points li svg { color: var(--brand); flex-shrink: 0; margin-top: 3px; }
+
+.cmp-table {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.8);
+}
+.cmp-table table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.cmp-table th {
+  text-align: left;
+  padding: 1rem 1.2rem;
+  background: var(--bg-elev);
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.cmp-table th:nth-child(3) { color: var(--brand); }
+.cmp-table td {
+  padding: 0.85rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-main);
+}
+.cmp-table tr:last-child td { border-bottom: none; }
+.cmp-table td:first-child { color: var(--text-sub); font-size: 0.85rem; }
+.cmp-table td:nth-child(2) { font-family: var(--mono); font-size: 0.84rem; color: #8FA3B5; }
+.cmp-table td:nth-child(3) {
+  font-family: var(--mono);
+  font-size: 0.84rem;
+  color: var(--brand);
+  font-weight: 600;
+  background: rgba(79,195,247,0.045);
+}
+.cmp-table tr:hover td { background: rgba(255,255,255,0.018); }
+.cmp-table tr:hover td:nth-child(3) { background: rgba(79,195,247,0.075); }
+
+.speed-tag {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.4rem 1rem;
+  border-radius: 100px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  color: var(--green);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ============================================================
+   效果预览（毛玻璃 / 液态玻璃）
+   ============================================================ */
+.fx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+}
+
+.fx-card {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: default;
+  transition: all .3s cubic-bezier(.2,0,0,1);
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 20% 20%, #4FC3F7 0%, transparent 42%),
+    radial-gradient(circle at 80% 30%, #9C6BFF 0%, transparent 45%),
+    radial-gradient(circle at 30% 80%, #FF7EB6 0%, transparent 45%),
+    radial-gradient(circle at 75% 85%, #4ADE80 0%, transparent 45%),
+    linear-gradient(135deg, #0E141C, #121821);
+}
+.fx-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.7);
+  border-color: var(--brand-border);
+}
+
+.fx-curves {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fx-curves path {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.85;
+  animation: fxCurveFloat 8s ease-in-out infinite;
+}
+.fx-curves path:nth-child(1) { animation-delay: 0s; }
+.fx-curves path:nth-child(2) { animation-delay: 1.2s; }
+.fx-curves path:nth-child(3) { animation-delay: 2.4s; }
+.fx-curves path:nth-child(4) { animation-delay: 3.6s; }
+
+@keyframes fxCurveFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-8px) scale(1.02); }
+}
+
+.fx-layer {
+  position: absolute;
+  inset: 20px;
+  z-index: 2;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 1.2rem;
+  color: var(--text-main);
+}
+.fx-layer .fx-name {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+  letter-spacing: -0.01em;
+}
+.fx-layer .fx-desc {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  font-family: var(--mono);
+}
+
+/* ① 无效果（对照） */
+.fx-plain .fx-layer { background: transparent; }
+
+/* ② 毛玻璃（对应源码 .aesthetic-glass 卡片）
+   background rgba(31,31,31,0.65) + blur(8px) saturate(1.3) + 内高光 */
+.fx-glass .fx-layer {
+  background: rgba(31, 31, 31, 0.65);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ③ 液态玻璃（对应源码 .aesthetic-liquid 侧栏）
+   background rgba(31,31,31,0.15) + blur(3px) + SVG 位移 + 四向内阴影 */
+.fx-liquid .fx-layer {
+  background: rgba(31, 31, 31, 0.15);
+  backdrop-filter: blur(3px) url(#fxLgFilter);
+  -webkit-backdrop-filter: blur(3px) url(#fxLgFilter);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    inset 1px 0 0 rgba(255, 255, 255, 0.06),
+    inset -1px 0 0 rgba(255, 255, 255, 0.06),
+    4px 0 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.fx-liquid .fx-layer::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(2px) brightness(1.08);
+  -webkit-backdrop-filter: blur(2px) brightness(1.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* ④ 液态玻璃 · 强（blur 8px + 边缘外拱更明显） */
+.fx-liquid-strong .fx-layer {
+  background: rgba(31, 31, 31, 0.25);
+  backdrop-filter: blur(8px) saturate(1.6) url(#fxLgFilter);
+  -webkit-backdrop-filter: blur(8px) saturate(1.6) url(#fxLgFilter);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+    inset 2px 0 0 rgba(255, 255, 255, 0.08),
+    inset -2px 0 0 rgba(255, 255, 255, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.fx-liquid-strong .fx-layer::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(3px) brightness(1.12);
+  -webkit-backdrop-filter: blur(3px) brightness(1.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 2px 0 rgba(255, 255, 255, 0.32);
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* 效果预览底部图例 */
+.fx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  justify-content: center;
+  margin-top: 1.6rem;
+  font-size: 0.82rem;
+  color: var(--text-sub);
+}
+.fx-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fx-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: block;
+  flex-shrink: 0;
+}
+.fx-legend .lg-plain  { background: transparent; border: 1px solid var(--border-strong); }
+.fx-legend .lg-glass  { background: rgba(31,31,31,0.65); border: 1px solid rgba(255,255,255,0.15); }
+.fx-legend .lg-liquid { background: rgba(31,31,31,0.25); border: 1px solid rgba(255,255,255,0.2); }
+
+.shot-hint {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  margin-top: 1rem;
+}
+
+/* ============================================================
+   技术栈
+   ============================================================ */
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.stack-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  transition: all .25s ease;
+}
+.stack-item:hover {
+  border-color: var(--brand-border);
+  transform: translateY(-3px);
+}
+.stack-item .st-name {
+  font-weight: 650;
+  font-size: 0.98rem;
+  margin-bottom: 0.25rem;
+}
+.stack-item .st-role {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+.stack-item .st-badge {
+  display: inline-block;
+  margin-top: 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 0.18rem 0.6rem;
+  border-radius: 6px;
+}
+
+/* ============================================================
+   下载区
+   ============================================================ */
+.dl-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 3rem 2.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.dl-card::before {
+  content: '';
+  position: absolute;
+  top: -60%; left: 50%;
+  transform: translateX(-50%);
+  width: 700px; height: 400px;
+  background: radial-gradient(circle, rgba(79,195,247,0.13), transparent 65%);
+  pointer-events: none;
+}
+
+.os-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.os-card {
+  background: rgba(255,255,255,0.022);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.5rem;
+  text-decoration: none;
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  transition: all .28s cubic-bezier(.2,0,0,1);
+  position: relative;
+  overflow: hidden;
+}
+.os-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  opacity: 0;
+  transition: opacity .3s;
+}
+.os-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--brand-border);
+  background: rgba(79,195,247,0.06);
+  box-shadow: 0 20px 40px -16px rgba(0,0,0,0.8);
+}
+.os-card:hover::before { opacity: 1; }
+
+.os-card .os-icon { color: var(--brand); margin-bottom: 0.2rem; }
+.os-card .os-name { font-weight: 700; font-size: 1.1rem; }
+.os-card .os-sub  { font-size: 0.8rem; color: var(--text-sub); }
+.os-card .os-badge {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-family: var(--mono);
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 0.2rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--brand-border);
+}
+
+.dl-note {
+  margin-top: 1.8rem;
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  position: relative;
+}
+.dl-note a { color: var(--brand); text-decoration: none; }
+.dl-note a:hover { text-decoration: underline; }
+
+.dl-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.2rem;
+  max-width: 900px;
+  margin: 2rem auto 0;
+}
+.dl-info {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem;
+}
+.dl-info h4 {
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.dl-info p { color: var(--text-sub); font-size: 0.9rem; }
+.dl-info code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-main);
+  background: rgba(255,255,255,0.05);
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+}
+
+/* 系统要求表 */
+.req-table {
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.req-table th {
+  text-align: left;
+  padding: 0.9rem 1.2rem;
+  background: var(--bg-elev);
+  color: var(--text-sub);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.req-table td {
+  padding: 0.85rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-main);
+}
+.req-table tr:last-child td { border-bottom: none; }
+.req-table td:first-child { color: var(--text-sub); width: 30%; }
+.req-table code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   更新日志
+   ============================================================ */
+.timeline {
+  position: relative;
+  max-width: 820px;
+  margin: 0 auto;
+  padding-left: 2.5rem;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--brand), rgba(79,195,247,0.1));
+  border-radius: 2px;
+}
+
+.log-item {
+  position: relative;
+  margin-bottom: 2.5rem;
+}
+.log-item::before {
+  content: '';
+  position: absolute;
+  left: -2.5rem;
+  top: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-deep);
+  border: 3px solid var(--brand);
+  box-shadow: 0 0 0 4px rgba(79,195,247,0.12), 0 0 16px var(--brand-glow);
+}
+.log-item.dim::before {
+  border-color: var(--text-dim);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.04);
+}
+
+.log-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+.log-ver {
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  font-family: var(--mono);
+}
+.log-date {
+  color: var(--text-sub);
+  font-size: 0.85rem;
+  font-family: var(--mono);
+}
+.log-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.18rem 0.6rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.log-tag.new  { background: var(--brand-soft); color: var(--brand); border: 1px solid var(--brand-border); }
+.log-tag.fix  { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+.log-tag.imp  { background: rgba(255,159,67,0.12); color: var(--orange); border: 1px solid rgba(255,159,67,0.3); }
+.log-tag.beta { background: rgba(255,255,255,0.06); color: var(--text-sub); border: 1px solid var(--border); }
+
+.log-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.3rem 1.6rem;
+}
+.log-card h4 {
+  font-size: 0.88rem;
+  color: var(--text-main);
+  margin-bottom: 0.6rem;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.log-card h4 .k {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 0.12rem 0.5rem;
+  border-radius: 5px;
+  font-weight: 700;
+}
+.log-card ul { list-style: none; padding-left: 0; }
+.log-card li {
+  color: var(--text-sub);
+  font-size: 0.9rem;
+  padding: 0.32rem 0 0.32rem 1.4rem;
+  position: relative;
+  line-height: 1.6;
+}
+.log-card li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--brand);
+  font-size: 0.85rem;
+}
+.log-card li code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-main);
+  background: rgba(255,255,255,0.05);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   关于页
+   ============================================================ */
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.about-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.7rem 1.8rem;
+}
+.about-card h3 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.about-card h3 svg { color: var(--brand); flex-shrink: 0; }
+.about-card p, .about-card li {
+  color: var(--text-sub);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.about-card ul { list-style: none; }
+.about-card li {
+  padding: 0.4rem 0 0.4rem 1.4rem;
+  position: relative;
+}
+.about-card li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--brand);
+}
+.about-card li b { color: var(--text-main); font-weight: 600; }
+.about-card li a {
+  color: var(--brand);
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color .2s ease, color .2s ease;
+}
+.about-card li a:hover {
+  color: #6FD0FA;
+  border-bottom-color: #6FD0FA;
+}
+
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+.member {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border: 1px solid var(--brand-border);
+  padding: 0.32rem 0.85rem;
+  border-radius: 100px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.license-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.3rem;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-border);
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: var(--mono);
+  margin-bottom: 1.1rem;
+}
+
+/* ============================================================
+   FAQ
+   ============================================================ */
+.faq-list {
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color .2s ease;
+}
+.faq-item:hover { border-color: var(--border-strong); }
+.faq-item[open] { border-color: var(--brand-border); }
+.faq-q {
+  list-style: none;
+  padding: 1.1rem 1.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.96rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  user-select: none;
+}
+.faq-q::-webkit-details-marker { display: none; }
+.faq-q::after {
+  content: '+';
+  color: var(--brand);
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: transform .25s ease;
+}
+.faq-item[open] .faq-q::after { transform: rotate(45deg); }
+.faq-a {
+  padding: 0 1.5rem 1.3rem;
+  color: var(--text-sub);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.faq-a code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   页脚
+   ============================================================ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 3rem 0 2rem;
+  margin-top: 3rem;
+}
+
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 2.5rem;
+  margin-bottom: 2.5rem;
+}
+.foot-brand .logo { margin-bottom: 0.9rem; }
+.foot-brand p {
+  color: var(--text-sub);
+  font-size: 0.88rem;
+  max-width: 280px;
+  line-height: 1.7;
+}
+
+.foot-col h4 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+.foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+.foot-col a {
+  color: var(--text-sub);
+  text-decoration: none;
+  font-size: 0.88rem;
+  transition: color .2s ease;
+}
+.foot-col a:hover { color: var(--brand); }
+
+.foot-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1.8rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.84rem;
+  color: var(--text-dim);
+}
+.foot-bottom .socials { display: flex; gap: 0.6rem; }
+.foot-bottom .socials a {
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: all .2s ease;
+}
+.foot-bottom .socials a:hover {
+  color: var(--brand);
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   滚动进场动画
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity .7s ease, transform .7s cubic-bezier(.2,0,0,1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 语言切换时的淡出 */
+[data-i18n] { transition: opacity .15s ease; }
+.lang-switching [data-i18n] { opacity: 0.3; }
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 980px) {
+  .hero { grid-template-columns: 1fr; gap: 3rem; padding: 4rem 0 3rem; }
+  .hero-visual { order: -1; }
+  .launcher-window { max-width: 360px; }
+  .nt-wrap { grid-template-columns: 1fr; gap: 2.2rem; }
+  .foot-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+}
+
+@media (max-width: 720px) {
+  .nav-links { display: none; }
+  .nav { height: 58px; }
+  section { padding: 3.2rem 0; }
+  .dl-card { padding: 2.2rem 1.4rem; }
+  .cmp-table th, .cmp-table td { padding: 0.7rem 0.85rem; font-size: 0.8rem; }
+  .cmp-table td:nth-child(2), .cmp-table td:nth-child(3) { font-size: 0.78rem; }
+  .foot-grid { grid-template-columns: 1fr; gap: 1.8rem; }
+  .foot-bottom { flex-direction: column; text-align: center; }
+  .timeline { padding-left: 2rem; }
+  .log-item::before { left: -2rem; width: 14px; height: 14px; }
+  .req-table th, .req-table td { padding: 0.7rem 0.85rem; font-size: 0.82rem; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 1.1rem; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .hero-actions .btn { width: 100%; }
+  .hero-meta { gap: 0.9rem; font-size: 0.8rem; }
+  .logo-text { display: none; }
+  .lang-switch button { padding: 0.38rem 0.55rem; font-size: 0.72rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- 液态玻璃用的 SVG filter -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+  <defs>
+    <filter id="fxLgFilter" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.012" numOctaves="2" seed="92" result="noise"/>
+      <feGaussianBlur in="noise" stdDeviation="1" result="blurred"/>
+      <feDisplacementMap in="SourceGraphic" in2="blurred" scale="8" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ============================================================
+     导航栏
+     ============================================================ -->
+<header>
+  <div class="container">
+    <nav class="nav">
+      <a href="#/home" class="logo">
+        <span class="logo-cube"><span></span><span></span><span></span><span></span></span>
+        <span class="logo-text">XG<b>studio</b> Launcher</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#/home" data-nav="home" data-i18n="nav.home">首页</a></li>
+        <li><a href="#/download" data-nav="download" data-i18n="nav.download">下载</a></li>
+        <li><a href="#/changelog" data-nav="changelog" data-i18n="nav.changelog">更新日志</a></li>
+        <li><a href="#/about" data-nav="about" data-i18n="nav.about">关于</a></li>
+      </ul>
+
+      <div class="nav-right">
+        <div class="lang-switch">
+          <button data-lang="zh-CN" class="active">中</button>
+          <button data-lang="en-US">EN</button>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- ============================================================
+     页面：首页
+     ============================================================ -->
+<div class="page active" id="page-home">
+
+  <div class="container">
+    <section class="hero">
+      <div class="hero-content reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="hero.badge">Beta 公开测试版</span></span>
+        <h1>
+          <span data-i18n="hero.title1">开源、现代的</span><br>
+          <span class="hl" data-i18n="hero.title2">Minecraft 启动器</span>
+        </h1>
+        <p class="lead" data-i18n="hero.lead">
+          基于 Electron + Node.js 构建，由个人开发者 XG 打造。全新 NT 架构带来更快的启动速度与更高的稳定性。
+        </p>
+        <div class="hero-actions">
+          <a href="#/download" class="btn btn-primary btn-lg">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="hero.btnDownload">立即下载</span>
+          </a>
+          <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL"
+             target="_blank" rel="noopener" class="btn btn-ghost btn-lg">
+            <span data-i18n="hero.btnSource">查看源码</span>
+          </a>
+        </div>
+        <div class="hero-meta">
+          <span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span data-i18n="hero.meta1">Electron + Node.js</span>
+          </span>
+          <span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span data-i18n="hero.meta2">AGPLv3.0 开源</span>
+          </span>
+          <span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span data-i18n="hero.meta3">Windows x64</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal">
+        <div class="launcher-window">
+          <div class="win-bar">
+            <i></i><i></i><i></i>
+            <span class="win-title">XGMCL xg26b02b</span>
+          </div>
+          <div class="win-body">
+            <div class="win-hero"><span>XGMCL</span></div>
+            <div class="win-row">
+              <span class="k" data-i18n="mock.version">游戏版本</span>
+              <span class="v">1.21.4 · Fabric</span>
+            </div>
+            <div class="win-row">
+              <span class="k" data-i18n="mock.java">Java 运行时</span>
+              <span class="v ok" data-i18n="mock.ready">已就绪</span>
+            </div>
+            <div class="win-row">
+              <span class="k" data-i18n="mock.backend">后端初始化</span>
+              <span class="v ok">0.0s (NT)</span>
+            </div>
+            <div class="win-row">
+              <span class="k" data-i18n="mock.account">账户状态</span>
+              <span class="v" data-i18n="mock.logged">已登录</span>
+            </div>
+            <div class="win-progress"><i></i></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 特性 -->
+  <div class="container">
+    <section id="features">
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="features.badge">FEATURES</span></span>
+        <h2 data-i18n="features.title">为 Minecraft 玩家而生</h2>
+        <p data-i18n="features.sub">现代化架构、流畅体验与开源精神，一切为了更好的游戏启动体验。</p>
+      </div>
+
+      <div class="features">
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3 data-i18n="features.f1.title">NT 架构 · 极速启动</h3>
+          <p data-i18n="features.f1.desc">后端从 Python 全面迁移至 Node.js，初始化时间从约 16 秒缩短至约 8 秒，整体启动速度快 2 倍。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <h3 data-i18n="features.f2.title">现代 Mod Loader 支持</h3>
+          <p data-i18n="features.f2.desc">内置 Fabric / Quilt / NeoForge 三大现代 Mod Loader，自动下载并合并版本 JSON，开箱即用。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <h3 data-i18n="features.f3.title">多源并发下载</h3>
+          <p data-i18n="features.f3.desc">BMCLAPI 镜像与官方源自动切换，支持断点续传、SHA1 校验与多线程并发，下载稳定可靠。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3 data-i18n="features.f4.title">多种账户登录</h3>
+          <p data-i18n="features.f4.desc">支持离线账户与 LittleSkin 设备代码流登录，内置皮肤裁剪与 3D 皮肤预览。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <h3 data-i18n="features.f5.title">Mod 一站式管理</h3>
+          <p data-i18n="features.f5.desc">内置 Modrinth 搜索、安装、启用/禁用、批量删除，支持前置依赖树分析与一键升级。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3 data-i18n="features.f6.title">集成服务端与终端</h3>
+          <p data-i18n="features.f6.desc">一键安装 Fabric 服务端、可视化管理配置与插件，并内置多会话终端，开发调试两不误。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          </div>
+          <h3 data-i18n="features.f7.title">主题与界面自定义</h3>
+          <p data-i18n="features.f7.desc">主题色方案、毛玻璃/液态玻璃、动态壁纸、标题栏风格均可自由调整，打造属于你的启动器。</p>
+        </div>
+
+        <div class="feat reveal">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <h3 data-i18n="features.f8.title">多语言与日志系统</h3>
+          <p data-i18n="features.f8.desc">支持中、英、德、法、日等多语言（含彩蛋），完整的启动器与游戏日志查看、压缩与归档。</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- NT 架构对比 -->
+  <div class="container">
+    <section id="nt">
+      <div class="nt-wrap">
+        <div class="nt-text reveal">
+          <span class="badge"><span class="dot"></span> <span data-i18n="nt.badge">NT ARCHITECTURE</span></span>
+          <h2 data-i18n="nt.title">全新 NT 架构</h2>
+          <p data-i18n="nt.sub">将原本基于 Python + JS 的 XGstudioMinecraftLauncher，转变为更快、更稳定的 NT 架构。</p>
+          <ul class="nt-points">
+            <li>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="nt.p1">后端由 Python 迁移至 Node.js，文件数从 7 个扩展到 32 个</span>
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="nt.p2">后端加载时间从约 9 秒降至几乎瞬时（0s）</span>
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="nt.p3">后端调用响应从约 3 秒缩短至约 0.6 秒</span>
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="nt.p4">技术栈关联度从「小（FastAPI）」提升至「极高」</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="reveal">
+          <div class="cmp-table">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="nt.th1">对比项</th>
+                  <th data-i18n="nt.th2">原架构</th>
+                  <th data-i18n="nt.th3">NT 架构</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td data-i18n="nt.r1">后端</td><td>Python</td><td>Node.js</td></tr>
+                <tr><td data-i18n="nt.r2">后端文件数</td><td>7</td><td>32</td></tr>
+                <tr><td data-i18n="nt.r3">加载后端时间</td><td>≈ 9s</td><td>0s</td></tr>
+                <tr><td data-i18n="nt.r4">调用后端时间</td><td>≈ 3s</td><td>≈ 0.6s</td></tr>
+                <tr><td data-i18n="nt.r5">总启动（初始化）时间</td><td>≈ 16s</td><td>≈ 8s</td></tr>
+                <tr><td data-i18n="nt.r6">技术栈关联</td><td data-i18n="nt.r6a">小（FastAPI）</td><td data-i18n="nt.r6b">极高</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="text-align:center;">
+            <span class="speed-tag" data-i18n="nt.speed">🚀 总启动时间提升 — 快 2 倍</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 效果预览（毛玻璃 / 液态玻璃） -->
+  <div class="container">
+    <section id="shots">
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="shots.badge">EFFECTS</span></span>
+        <h2 data-i18n="shots.title">效果预览</h2>
+        <p data-i18n="shots.sub">毛玻璃与液态玻璃效果对比。启动器内置这两套视觉风格，可在外观设置中随时切换。</p>
+      </div>
+
+      <div class="fx-grid">
+        <!-- ① 无效果 -->
+        <div class="fx-card fx-plain reveal">
+          <svg class="fx-curves" viewBox="0 0 400 250" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M-20 180 Q 60 60, 140 130 T 320 90 T 440 160" stroke="#4FC3F7" stroke-width="3"/>
+            <path d="M-20 100 Q 80 200, 180 120 T 360 180 T 440 100" stroke="#9C6BFF" stroke-width="3"/>
+            <path d="M-20 220 Q 100 80, 200 180 T 400 100 T 440 200" stroke="#FF7EB6" stroke-width="3"/>
+            <path d="M-20 40 Q 120 160, 240 80 T 420 140" stroke="#4ADE80" stroke-width="2.5"/>
+          </svg>
+          <div class="fx-layer">
+            <div class="fx-name" data-i18n="fx.plain.name">无效果</div>
+            <div class="fx-desc">backdrop-filter: none</div>
+          </div>
+        </div>
+
+        <!-- ② 毛玻璃 -->
+        <div class="fx-card fx-glass reveal">
+          <svg class="fx-curves" viewBox="0 0 400 250" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M-20 180 Q 60 60, 140 130 T 320 90 T 440 160" stroke="#4FC3F7" stroke-width="3"/>
+            <path d="M-20 100 Q 80 200, 180 120 T 360 180 T 440 100" stroke="#9C6BFF" stroke-width="3"/>
+            <path d="M-20 220 Q 100 80, 200 180 T 400 100 T 440 200" stroke="#FF7EB6" stroke-width="3"/>
+            <path d="M-20 40 Q 120 160, 240 80 T 420 140" stroke="#4ADE80" stroke-width="2.5"/>
+          </svg>
+          <div class="fx-layer">
+            <div class="fx-name" data-i18n="fx.glass.name">毛玻璃</div>
+            <div class="fx-desc">blur(8px) saturate(1.3)</div>
+          </div>
+        </div>
+
+        <!-- ③ 液态玻璃 -->
+        <div class="fx-card fx-liquid reveal">
+          <svg class="fx-curves" viewBox="0 0 400 250" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M-20 180 Q 60 60, 140 130 T 320 90 T 440 160" stroke="#4FC3F7" stroke-width="3"/>
+            <path d="M-20 100 Q 80 200, 180 120 T 360 180 T 440 100" stroke="#9C6BFF" stroke-width="3"/>
+            <path d="M-20 220 Q 100 80, 200 180 T 400 100 T 440 200" stroke="#FF7EB6" stroke-width="3"/>
+            <path d="M-20 40 Q 120 160, 240 80 T 420 140" stroke="#4ADE80" stroke-width="2.5"/>
+          </svg>
+          <div class="fx-layer">
+            <div class="fx-name" data-i18n="fx.liquid.name">液态玻璃</div>
+            <div class="fx-desc">blur(3px) + SVG 位移</div>
+          </div>
+        </div>
+
+        <!-- ④ 液态玻璃 · 强 -->
+        <div class="fx-card fx-liquid-strong reveal">
+          <svg class="fx-curves" viewBox="0 0 400 250" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M-20 180 Q 60 60, 140 130 T 320 90 T 440 160" stroke="#4FC3F7" stroke-width="3"/>
+            <path d="M-20 100 Q 80 200, 180 120 T 360 180 T 440 100" stroke="#9C6BFF" stroke-width="3"/>
+            <path d="M-20 220 Q 100 80, 200 180 T 400 100 T 440 200" stroke="#FF7EB6" stroke-width="3"/>
+            <path d="M-20 40 Q 120 160, 240 80 T 420 140" stroke="#4ADE80" stroke-width="2.5"/>
+          </svg>
+          <div class="fx-layer">
+            <div class="fx-name" data-i18n="fx.liquidStrong.name">液态玻璃 · 强</div>
+            <div class="fx-desc">blur(8px) + 边缘外拱</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fx-legend reveal">
+        <span><i class="lg-plain"></i><span data-i18n="fx.legend.plain">无效果</span></span>
+        <span><i class="lg-glass"></i><span data-i18n="fx.legend.glass">毛玻璃</span></span>
+        <span><i class="lg-liquid"></i><span data-i18n="fx.legend.liquid">液态玻璃</span></span>
+      </div>
+
+      <p class="shot-hint" data-i18n="shots.hint">效果由 CSS backdrop-filter 实时渲染，实际效果可能因显卡与系统而异。</p>
+    </section>
+  </div>
+
+  <!-- 技术栈 -->
+  <div class="container">
+    <section id="stack">
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="stack.badge">TECH STACK</span></span>
+        <h2 data-i18n="stack.title">技术栈</h2>
+        <p data-i18n="stack.sub">清晰、现代、高关联度的技术选型。</p>
+      </div>
+      <div class="stack-grid">
+        <div class="stack-item reveal">
+          <div class="st-name">Node.js</div>
+          <div class="st-role" data-i18n="stack.node.role">后端 / 主进程</div>
+          <span class="st-badge">runtime</span>
+        </div>
+        <div class="stack-item reveal">
+          <div class="st-name">Electron</div>
+          <div class="st-role" data-i18n="stack.electron.role">桌面框架</div>
+          <span class="st-badge">desktop</span>
+        </div>
+        <div class="stack-item reveal">
+          <div class="st-name">HTML / CSS / JS</div>
+          <div class="st-role" data-i18n="stack.front.role">前端界面</div>
+          <span class="st-badge">frontend</span>
+        </div>
+        <div class="stack-item reveal">
+          <div class="st-name">electron-builder</div>
+          <div class="st-role" data-i18n="stack.builder.role">打包工具</div>
+          <span class="st-badge">build</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 下载入口 -->
+  <div class="container">
+    <section>
+      <div class="dl-card reveal">
+        <div class="sec-head" style="margin-bottom:2rem;">
+          <span class="badge"><span class="dot"></span> <span data-i18n="home.dl.badge">DOWNLOAD</span></span>
+          <h2 data-i18n="home.dl.title">开始使用 XGMCL</h2>
+          <p data-i18n="home.dl.sub">Windows x64 · xg26b02b · Beta 公开测试版</p>
+        </div>
+        <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; position:relative;">
+          <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases/download/vxg26b02b/XGstudioMinecraftLauncher-NT-win-x64-26b02b.zip"
+             class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="home.dl.btn">下载 Windows 版</span>
+          </a>
+          <a href="#/download" class="btn btn-ghost btn-lg">
+            <span data-i18n="home.dl.more">查看全部下载</span>
+          </a>
+        </div>
+        <p class="dl-note" style="position:relative;">
+          <span data-i18n="home.dl.note">下载遇到问题？</span>
+          <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases" target="_blank" rel="noopener">
+            <span data-i18n="home.dl.noteLink">前往 GitHub Releases</span>
+          </a>
+        </p>
+      </div>
+    </section>
+  </div>
+
+</div><!-- /#page-home -->
+
+<!-- ============================================================
+     页面：下载
+     ============================================================ -->
+<div class="page" id="page-download">
+  <div class="container">
+    <section>
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="dl.badge">DOWNLOAD</span></span>
+        <h2 data-i18n="dl.title">下载 XGstudio Launcher</h2>
+        <p data-i18n="dl.sub">当前为 Beta 公开测试版，功能可能变动，遇到问题请到 GitHub Issues 反馈。</p>
+      </div>
+
+      <div class="os-grid">
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases/download/vxg26b02b/XGstudioMinecraftLauncher-NT-win-x64-26b02b.zip"
+           class="os-card reveal" target="_blank" rel="noopener">
+          <span class="os-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+          </span>
+          <span class="os-name">Windows</span>
+          <span class="os-sub" data-i18n="dl.win.sub">Windows 10 / 11 · x64</span>
+          <span class="os-badge">.zip · 26b02b</span>
+        </a>
+
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases/download/vxg26b02b/XGMCL_xg26b02b_Code.zip"
+           class="os-card reveal" target="_blank" rel="noopener">
+          <span class="os-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </span>
+          <span class="os-name" data-i18n="dl.src.name">源代码</span>
+          <span class="os-sub" data-i18n="dl.src.sub">完整源码包 · AGPLv3.0</span>
+          <span class="os-badge">.zip · xg26b02b</span>
+        </a>
+      </div>
+
+      <p class="dl-note" style="text-align:center;">
+        <span data-i18n="dl.note">所有版本均可在</span>
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases" target="_blank" rel="noopener">GitHub Releases</a>
+        <span data-i18n="dl.note2">页面找到。</span>
+      </p>
+    </section>
+
+    <!-- 系统要求 -->
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <h2 data-i18n="dl.sys.title">系统要求</h2>
+        <p data-i18n="dl.sys.sub">运行 XGMCL 所需的软硬件环境。</p>
+      </div>
+      <table class="req-table reveal">
+        <thead>
+          <tr>
+            <th data-i18n="dl.sys.th1">项目</th>
+            <th data-i18n="dl.sys.th2">最低要求</th>
+            <th data-i18n="dl.sys.th3">推荐配置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-i18n="dl.sys.os">操作系统</td>
+            <td data-i18n="dl.sys.os.v1">Windows 10</td>
+            <td data-i18n="dl.sys.os.v2">Windows 10 及以上</td>
+          </tr>
+          <tr>
+            <td data-i18n="dl.sys.cpu">处理器</td>
+            <td data-i18n="dl.sys.cpu.v1">双核 1.6 GHz</td>
+            <td data-i18n="dl.sys.cpu.v2">双核 2.9 GHz+</td>
+          </tr>
+          <tr>
+            <td data-i18n="dl.sys.ram">内存</td>
+            <td data-i18n="dl.sys.ram.v1">4 GB DDR3</td>
+            <td data-i18n="dl.sys.ram.v2">8 GB DDR3+</td>
+          </tr>
+          <tr>
+            <td data-i18n="dl.sys.disk">磁盘空间</td>
+            <td data-i18n="dl.sys.disk.v1">500 MB</td>
+            <td data-i18n="dl.sys.disk.v2">2 GB+（单版本）</td>
+          </tr>
+          <tr>
+            <td data-i18n="dl.sys.java">Java</td>
+            <td><code>Java 17</code>+</td>
+            <td><code>Java 21</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 安装步骤 -->
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <h2 data-i18n="dl.install.title">安装说明</h2>
+        <p data-i18n="dl.install.sub">三步即可开始游戏。</p>
+      </div>
+      <div class="dl-info-grid">
+        <div class="dl-info reveal">
+          <h4 data-i18n="dl.install.s1.t">1 · 下载并解压</h4>
+          <p data-i18n="dl.install.s1.d">下载 Windows 版压缩包，解压到任意目录（建议路径不含中文和空格）。</p>
+        </div>
+        <div class="dl-info reveal">
+          <h4 data-i18n="dl.install.s2.t">2 · 运行启动器</h4>
+          <p data-i18n="dl.install.s2.d">双击 XGMCL.exe 启动。首次运行可能触发 Windows SmartScreen，选择「仍要运行」。</p>
+        </div>
+        <div class="dl-info reveal">
+          <h4 data-i18n="dl.install.s3.t">3 · 登录并下载游戏</h4>
+          <p data-i18n="dl.install.s3.d">添加离线或 LittleSkin 账户，选择版本后点击下载，完成后即可启动游戏。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="dl.faq.badge">FAQ</span></span>
+        <h2 data-i18n="dl.faq.title">常见问题</h2>
+        <p data-i18n="dl.faq.sub">遇到问题？先看看这里有没有答案。</p>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q1">为什么我的游戏无法启动？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a1">你可能没有安装 Java 运行时，或版本过低/过高；也可能是没有添加账户。详情可以加入官方群询问。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q2">为什么启动器无法启动？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a2">请检查你的环境是否已经达到了最低要求。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q3">找不到 Java 怎么办？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a3">请确认你已经安装了 JRE 或 JDK。如果为绿色版，请点击全局设置页的「深度扫描 Java」。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q4">启动器的日志 / 配置保存在哪？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a4">同目录的 XGMCL 文件夹保存配置和日志（XGMCL/xgmcllog/）；同目录的 .xgstudiomclauncher 文件夹保存你默认下载的版本及 mod 等。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q5">下载过慢怎么办？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a5">请查看启动器日志，如果没有错误，请切换下载源。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q6">支持什么 Mod 加载器？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a6">支持现代的 Mod Loader：Fabric、NeoForge、Quilt。请注意，我们并不支持 Forge。</div>
+        </details>
+        <details class="faq-item reveal">
+          <summary class="faq-q" data-i18n="dl.faq.q7">如何反馈 Bug？</summary>
+          <div class="faq-a" data-i18n="dl.faq.a7">加入官方群 903815517，或在 GitHub Issues 提交。必要时请附上启动器日志。</div>
+        </details>
+      </div>
+    </section>
+  </div>
+</div><!-- /#page-download -->
+
+<!-- ============================================================
+     页面：更新日志
+     ============================================================ -->
+<div class="page" id="page-changelog">
+  <div class="container">
+    <section>
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="log.badge">CHANGELOG</span></span>
+        <h2 data-i18n="log.title">更新日志</h2>
+        <p data-i18n="log.sub">XGMCL 从创世到 NT 架构的完整版本历史。</p>
+      </div>
+
+      <div class="timeline">
+
+        <!-- xg26b02b -->
+        <div class="log-item reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b02b</span>
+            <span class="log-date">NT</span>
+            <span class="log-tag new" data-i18n="log.tag.latest">最新</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NT</span> <span data-i18n="log.b02a.title">纯 JS 架构 · 里程碑版本</span></h4>
+            <ul>
+              <li data-i18n="log.b02a.1">由 PY_JS 架构彻底转为纯 JS（Node.js + Electron）</li>
+              <li data-i18n="log.b02a.2">安装包体积从 460 MB 缩减到 130 MB</li>
+              <li data-i18n="log.b02a.3">启动时间从 16 秒优化到 8 秒，快 2 倍</li>
+              <li data-i18n="log.b02a.4">整合此前全部功能，作为 NT 架构的稳定基线</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01f -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01f</span>
+            <span class="log-date">PY_JS</span>
+            <span class="log-tag imp">Modrinth</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NEW</span> <span data-i18n="log.b01f.title">Modrinth 全 API 打通 · 直接开服</span></h4>
+            <ul>
+              <li data-i18n="log.b01f.1">打通其余 Modrinth API（用户 / 项目 / 版本 / 依赖）</li>
+              <li data-i18n="log.b01f.2">服务器管理升级为「直接开服」，自动安装 Fabric 服务端</li>
+              <li data-i18n="log.b01f.3">新增插件下载功能</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01e -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01e</span>
+            <span class="log-date">PY_JS</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NEW</span> <span data-i18n="log.b01e.title">服务器管理 · 下载任务 · 主题色</span></h4>
+            <ul>
+              <li data-i18n="log.b01e.1">添加「服务器管理」面板</li>
+              <li data-i18n="log.b01e.2">添加「下载任务」列表与进度显示</li>
+              <li data-i18n="log.b01e.3">添加「颜色选择」等 UI 外观选项</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01d -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01d</span>
+            <span class="log-date">PY_JS</span>
+            <span class="log-tag imp">LittleSkin</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NEW</span> <span data-i18n="log.b01d.title">LittleSkin · 浏览器主页 · Modrinth Mod</span></h4>
+            <ul>
+              <li data-i18n="log.b01d.1">增加 LittleSkin 账户登录</li>
+              <li data-i18n="log.b01d.2">增加浏览器主页（内置 WebView）</li>
+              <li data-i18n="log.b01d.3">打通 Modrinth 的 Mod 集成</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01c -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01c</span>
+            <span class="log-date">PY_JS</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NEW</span> <span data-i18n="log.b01c.title">日志 · 主页内容 · 离线账户 · 关于</span></h4>
+            <ul>
+              <li data-i18n="log.b01c.1">添加「日志」查看器</li>
+              <li data-i18n="log.b01c.2">添加「主页内容设置」</li>
+              <li data-i18n="log.b01c.3">添加「离线账户」支持</li>
+              <li data-i18n="log.b01c.4">添加「关于」页面</li>
+              <li data-i18n="log.b01c.5">重新排版设置页</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01b -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01b</span>
+            <span class="log-date">PY_JS</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">NEW</span> <span data-i18n="log.b01b.title">重添加设置 · 界面设置</span></h4>
+            <ul>
+              <li data-i18n="log.b01b.1">重新添加「设置」页</li>
+              <li data-i18n="log.b01b.2">添加「界面设置」分类</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26b01a -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26b01a</span>
+            <span class="log-date">PY_JS</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">STABLE</span> <span data-i18n="log.b01a.title">较为稳定的版本</span></h4>
+            <ul>
+              <li data-i18n="log.b01a.1">较为稳定的 PY_JS 版本</li>
+              <li data-i18n="log.b01a.2">修复若干 bug</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26a02a -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26a02a</span>
+            <span class="log-date">PY_JS</span>
+            <span class="log-tag imp">重构</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">REFACTOR</span> <span data-i18n="log.a02a.title">重构全部源代码 · 新架构</span></h4>
+            <ul>
+              <li data-i18n="log.a02a.1">重构全部源代码</li>
+              <li data-i18n="log.a02a.2">采用全新的 PY_JS 混合架构</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26a01b -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26a01b</span>
+            <span class="log-date">PY</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">FIX</span> <span data-i18n="log.a01b.title">修复 bug · 添加「设置」</span></h4>
+            <ul>
+              <li data-i18n="log.a01b.1">修复若干 bug</li>
+              <li data-i18n="log.a01b.2">添加「设置」页</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- xg26a01a -->
+        <div class="log-item dim reveal">
+          <div class="log-head">
+            <span class="log-ver">xg26a01a</span>
+            <span class="log-date">PY</span>
+            <span class="log-tag beta" data-i18n="log.tag.origin">创世</span>
+          </div>
+          <div class="log-card">
+            <h4><span class="k">ORIGIN</span> <span data-i18n="log.a01a.title">项目创世 · 纯 Python 架构</span></h4>
+            <ul>
+              <li data-i18n="log.a01a.1">项目启动，采用纯 Python 架构</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+</div><!-- /#page-changelog -->
+
+<!-- ============================================================
+     页面：关于
+     ============================================================ -->
+<div class="page" id="page-about">
+  <div class="container">
+    <section>
+      <div class="sec-head reveal">
+        <span class="badge"><span class="dot"></span> <span data-i18n="about.badge">ABOUT</span></span>
+        <h2 data-i18n="about.title">关于 XGMCL</h2>
+        <p data-i18n="about.sub">一个开源、现代化的 Minecraft 启动器，由个人开发者 XG 打造。</p>
+      </div>
+
+      <div class="about-grid">
+        <div class="about-card reveal">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <span data-i18n="about.intro.title">项目简介</span>
+          </h3>
+          <p data-i18n="about.intro.desc">
+            XGstudio Minecraft Launcher（简称 XGMCL）是一款基于 Electron + Node.js 构建的开源 Minecraft 启动器。项目采用全新 NT 架构，专注于提升启动速度、稳定性与用户体验。
+          </p>
+        </div>
+
+        <div class="about-card reveal">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span data-i18n="about.status.title">当前状态</span>
+          </h3>
+          <p data-i18n="about.status.desc">
+            Beta 公开测试版 —— 启动器仍在积极开发中，功能可能变动，可能存在 bug。欢迎通过 GitHub Issues 或官方 QQ 群反馈问题。
+          </p>
+        </div>
+
+        <div class="about-card reveal">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span data-i18n="about.author.title">作者</span>
+          </h3>
+          <p data-i18n="about.author.desc">
+            由 <b style="color:var(--text-main);">XG</b> 独立开发与维护。
+          </p>
+        </div>
+
+        <div class="about-card reveal">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span data-i18n="about.license.title">开源协议</span>
+          </h3>
+          <div class="license-badge">AGPLv3.0</div>
+          <p data-i18n="about.license.desc">
+            本项目采用 GNU Affero 通用公共许可证 v3.0。你可以自由使用、修改和分发本项目，但需保留相同许可证，并向网络用户提供源代码。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <h2 data-i18n="about.members.title">XGstudio 成员</h2>
+      </div>
+      <div class="about-card reveal" style="max-width:780px;margin:0 auto;">
+        <div class="members">
+          <span class="member">XG</span>
+          <span class="member">_XAM</span>
+          <span class="member">HY</span>
+          <span class="member">Sodium</span>
+          <span class="member">HBK</span>
+          <span class="member">O-o</span>
+          <span class="member">LJH</span>
+          <span class="member">ChuiD</span>
+          <span class="member">mmmawa</span>
+          <span class="member">a_variation</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <h2 data-i18n="about.credits.title">致谢</h2>
+      </div>
+      <div class="about-card reveal" style="max-width:780px;margin:0 auto;">
+        <ul>
+          <li data-i18n-html="about.credits.1">Mod 中文名数据来源于 <a href="https://github.com/Meloong-Git/PCL" target="_blank" rel="noopener"><b>Plain Craft Launcher</b></a>（作者：龙腾猫跃）</li>
+          <li data-i18n="about.credits.2">感谢本项目依赖的<b>所有开源库及其贡献者</b>（详见 package.json）</li>
+          <li data-i18n-html="about.credits.3">感谢 <a href="https://github.com/mmmawa-114514" target="_blank" rel="noopener"><b>mmmawa</b></a> 的 Bug 测试（先天 bug 圣体）</li>
+          <li data-i18n-html="about.credits.4">感谢 <b>Xiao_yugg_</b> 的标题栏意见</li>
+          <li data-i18n-html="about.credits.5">感谢 <b>Sodium雷雳</b> 的标题栏意见</li>
+          <li data-i18n-html="about.credits.6">感谢 <a href="https://github.com/LJHs2" target="_blank" rel="noopener"><b>LJH（CHLJH）</b></a> 提出的启动器颜色预设不清晰问题，目前已修改</li>
+          <li data-i18n-html="about.credits.8">感谢 <a href="https://github.com/LMZZ123456" target="_blank" rel="noopener"><b>龙猫庄主LMZZ</b></a> 提供的服务器和功能意见</li>
+          <li data-i18n-html="about.credits.7">感谢<b>全体官方群成员</b>！</li>
+        </ul>
+      </div>
+    </section>
+
+    <section style="padding-top:1rem;">
+      <div class="sec-head reveal">
+        <h2 data-i18n="about.links.title">相关链接</h2>
+      </div>
+      <div class="dl-info-grid" style="max-width:780px;">
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL"
+           class="dl-info reveal" target="_blank" rel="noopener"
+           style="text-decoration:none;display:block;">
+          <h4>GitHub</h4>
+          <p data-i18n="about.links.github">查看源代码、提交 Issue 与 Pull Request</p>
+        </a>
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases"
+           class="dl-info reveal" target="_blank" rel="noopener"
+           style="text-decoration:none;display:block;">
+          <h4>Releases</h4>
+          <p data-i18n="about.links.releases">下载各版本发行包与源码包</p>
+        </a>
+        <div class="dl-info reveal">
+          <h4 data-i18n="about.links.qq.title">官方 QQ 群</h4>
+          <p><code>903815517</code></p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div><!-- /#page-about -->
+
+<!-- ============================================================
+     页脚
+     ============================================================ -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a href="#/home" class="logo">
+          <span class="logo-cube"><span></span><span></span><span></span><span></span></span>
+          <span class="logo-text">XG<b>studio</b> Launcher</span>
+        </a>
+        <p data-i18n="footer.desc">一个开源、现代化的 Minecraft 启动器。基于 Electron + Node.js，NT 架构带来更快更稳的体验。</p>
+      </div>
+
+      <div class="foot-col">
+        <h4 data-i18n="footer.nav">导航</h4>
+        <ul>
+          <li><a href="#/home" data-i18n="nav.home">首页</a></li>
+          <li><a href="#/download" data-i18n="nav.download">下载</a></li>
+          <li><a href="#/changelog" data-i18n="nav.changelog">更新日志</a></li>
+          <li><a href="#/about" data-i18n="nav.about">关于</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4 data-i18n="footer.resources">资源</h4>
+        <ul>
+          <li><a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/releases" target="_blank" rel="noopener">Releases</a></li>
+          <li><a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4 data-i18n="footer.legal">法律</h4>
+        <ul>
+          <li><a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPLv3.0</a></li>
+          <li><a href="#/about" data-i18n="footer.license">开源协议</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-bottom">
+      <span>© 2026 XGstudio · XGMCL xg26b02b · AGPLv3.0</span>
+      <div class="socials">
+        <a href="https://github.com/XG-cyhilu/XGstudio-Minecraft-Launcher--XGMCL" target="_blank" rel="noopener" title="GitHub">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============================================================
+     脚本
+     ============================================================ -->
+<script>
+/* ============================================================
+   1. i18n 字典
+   ============================================================ */
+const I18N = {
+  "zh-CN": {
+    "app.title": "XGstudio Minecraft Launcher — 开源 · 现代 · 快速",
+
+    /* 导航 */
+    "nav.home": "首页",
+    "nav.download": "下载",
+    "nav.changelog": "更新日志",
+    "nav.about": "关于",
+
+    /* Hero */
+    "hero.badge": "Beta 公开测试版",
+    "hero.title1": "开源、现代的",
+    "hero.title2": "Minecraft 启动器",
+    "hero.lead": "基于 Electron + Node.js 构建，由个人开发者 XG 打造。全新 NT 架构带来更快的启动速度与更高的稳定性。",
+    "hero.btnDownload": "立即下载",
+    "hero.btnSource": "查看源码",
+    "hero.meta1": "Electron + Node.js",
+    "hero.meta2": "AGPLv3.0 开源",
+    "hero.meta3": "Windows x64",
+
+    /* 启动器窗口模拟 */
+    "mock.version": "游戏版本",
+    "mock.java": "Java 运行时",
+    "mock.ready": "已就绪",
+    "mock.backend": "后端初始化",
+    "mock.account": "账户状态",
+    "mock.logged": "已登录",
+
+    /* 特性 */
+    "features.badge": "FEATURES",
+    "features.title": "为 Minecraft 玩家而生",
+    "features.sub": "现代化架构、流畅体验与开源精神，一切为了更好的游戏启动体验。",
+    "features.f1.title": "NT 架构 · 极速启动",
+    "features.f1.desc": "后端从 Python 全面迁移至 Node.js，初始化时间从约 16 秒缩短至约 8 秒，整体启动速度快 2 倍。",
+    "features.f2.title": "现代 Mod Loader 支持",
+    "features.f2.desc": "内置 Fabric / Quilt / NeoForge 三大现代 Mod Loader，自动下载并合并版本 JSON，开箱即用。",
+    "features.f3.title": "多源并发下载",
+    "features.f3.desc": "BMCLAPI 镜像与官方源自动切换，支持断点续传、SHA1 校验与多线程并发，下载稳定可靠。",
+    "features.f4.title": "多种账户登录",
+    "features.f4.desc": "支持离线账户与 LittleSkin 设备代码流登录，内置皮肤裁剪与 3D 皮肤预览。",
+    "features.f5.title": "Mod 一站式管理",
+    "features.f5.desc": "内置 Modrinth 搜索、安装、启用/禁用、批量删除，支持前置依赖树分析与一键升级。",
+    "features.f6.title": "集成服务端与终端",
+    "features.f6.desc": "一键安装 Fabric 服务端、可视化管理配置与插件，并内置多会话终端，开发调试两不误。",
+    "features.f7.title": "主题与界面自定义",
+    "features.f7.desc": "主题色方案、毛玻璃/液态玻璃、动态壁纸、标题栏风格均可自由调整，打造属于你的启动器。",
+    "features.f8.title": "多语言与日志系统",
+    "features.f8.desc": "支持中、英、德、法、日等多语言（含彩蛋），完整的启动器与游戏日志查看、压缩与归档。",
+
+    /* NT 架构 */
+    "nt.badge": "NT ARCHITECTURE",
+    "nt.title": "全新 NT 架构",
+    "nt.sub": "将原本基于 Python + JS 的 XGstudioMinecraftLauncher，转变为更快、更稳定的 NT 架构。",
+    "nt.p1": "后端由 Python 迁移至 Node.js，文件数从 7 个扩展到 32 个",
+    "nt.p2": "后端加载时间从约 9 秒降至几乎瞬时（0s）",
+    "nt.p3": "后端调用响应从约 3 秒缩短至约 0.6 秒",
+    "nt.p4": "技术栈关联度从「小（FastAPI）」提升至「极高」",
+    "nt.th1": "对比项",
+    "nt.th2": "原架构",
+    "nt.th3": "NT 架构",
+    "nt.r1": "后端",
+    "nt.r2": "后端文件数",
+    "nt.r3": "加载后端时间",
+    "nt.r4": "调用后端时间",
+    "nt.r5": "总启动（初始化）时间",
+    "nt.r6": "技术栈关联",
+    "nt.r6a": "小（FastAPI）",
+    "nt.r6b": "极高",
+    "nt.speed": "🚀 总启动时间提升 — 快 2 倍",
+
+    /* 效果预览 */
+    "shots.badge": "EFFECTS",
+    "shots.title": "效果预览",
+    "shots.sub": "毛玻璃与液态玻璃效果对比。启动器内置这两套视觉风格，可在外观设置中随时切换。",
+    "shots.hint": "效果由 CSS backdrop-filter 实时渲染，实际效果可能因显卡与系统而异。",
+    "fx.plain.name": "无效果",
+    "fx.glass.name": "毛玻璃",
+    "fx.liquid.name": "液态玻璃",
+    "fx.liquidStrong.name": "液态玻璃 · 强",
+    "fx.legend.plain": "无效果",
+    "fx.legend.glass": "毛玻璃",
+    "fx.legend.liquid": "液态玻璃",
+
+    /* 技术栈 */
+    "stack.badge": "TECH STACK",
+    "stack.title": "技术栈",
+    "stack.sub": "清晰、现代、高关联度的技术选型。",
+    "stack.node.role": "后端 / 主进程",
+    "stack.electron.role": "桌面框架",
+    "stack.front.role": "前端界面",
+    "stack.builder.role": "打包工具",
+
+    /* 首页下载区 */
+    "home.dl.badge": "DOWNLOAD",
+    "home.dl.title": "开始使用 XGMCL",
+    "home.dl.sub": "Windows x64 · xg26b02b · Beta 公开测试版",
+    "home.dl.btn": "下载 Windows 版",
+    "home.dl.more": "查看全部下载",
+    "home.dl.note": "下载遇到问题？",
+    "home.dl.noteLink": "前往 GitHub Releases",
+
+    /* 下载页 */
+    "dl.badge": "DOWNLOAD",
+    "dl.title": "下载 XGstudio Launcher",
+    "dl.sub": "当前为 Beta 公开测试版，功能可能变动，遇到问题请到 GitHub Issues 反馈。",
+    "dl.win.sub": "Windows 10 / 11 · x64",
+    "dl.src.name": "源代码",
+    "dl.src.sub": "完整源码包 · AGPLv3.0",
+    "dl.note": "所有版本均可在",
+    "dl.note2": "页面找到。",
+    "dl.sys.title": "系统要求",
+    "dl.sys.sub": "运行 XGMCL 所需的软硬件环境。",
+    "dl.sys.th1": "项目",
+    "dl.sys.th2": "最低要求",
+    "dl.sys.th3": "推荐配置",
+    "dl.sys.os": "操作系统",
+    "dl.sys.os.v1": "Windows 10",
+    "dl.sys.os.v2": "Windows 10 及以上",
+    "dl.sys.cpu": "处理器",
+    "dl.sys.cpu.v1": "双核 1.6 GHz",
+    "dl.sys.cpu.v2": "双核 2.9 GHz+",
+    "dl.sys.ram": "内存",
+    "dl.sys.ram.v1": "4 GB DDR3",
+    "dl.sys.ram.v2": "8 GB DDR3+",
+    "dl.sys.disk": "磁盘空间",
+    "dl.sys.disk.v1": "500 MB",
+    "dl.sys.disk.v2": "2 GB+（单版本）",
+    "dl.sys.java": "Java",
+    "dl.install.title": "安装说明",
+    "dl.install.sub": "三步即可开始游戏。",
+    "dl.install.s1.t": "1 · 下载并解压",
+    "dl.install.s1.d": "下载 Windows 版压缩包，解压到任意目录（建议路径不含中文和空格）。",
+    "dl.install.s2.t": "2 · 运行启动器",
+    "dl.install.s2.d": "双击 XGMCL.exe 启动。首次运行可能触发 Windows SmartScreen，选择「仍要运行」。",
+    "dl.install.s3.t": "3 · 登录并下载游戏",
+    "dl.install.s3.d": "添加离线或 LittleSkin 账户，选择版本后点击下载，完成后即可启动游戏。",
+    "dl.faq.badge": "FAQ",
+    "dl.faq.title": "常见问题",
+    "dl.faq.sub": "遇到问题？先看看这里有没有答案。",
+    "dl.faq.q1": "为什么我的游戏无法启动？",
+    "dl.faq.a1": "你可能没有安装 Java 运行时，或版本过低/过高；也可能是没有添加账户。详情可以加入官方群询问。",
+    "dl.faq.q2": "为什么启动器无法启动？",
+    "dl.faq.a2": "请检查你的环境是否已经达到了最低要求。",
+    "dl.faq.q3": "找不到 Java 怎么办？",
+    "dl.faq.a3": "请确认你已经安装了 JRE 或 JDK。如果为绿色版，请点击全局设置页的「深度扫描 Java」。",
+    "dl.faq.q4": "启动器的日志 / 配置保存在哪？",
+    "dl.faq.a4": "同目录的 XGMCL 文件夹保存配置和日志（XGMCL/xgmcllog/）；同目录的 .xgstudiomclauncher 文件夹保存你默认下载的版本及 mod 等。",
+    "dl.faq.q5": "下载过慢怎么办？",
+    "dl.faq.a5": "请查看启动器日志，如果没有错误，请切换下载源。",
+    "dl.faq.q6": "支持什么 Mod 加载器？",
+    "dl.faq.a6": "支持现代的 Mod Loader：Fabric、NeoForge、Quilt。请注意，我们并不支持 Forge。",
+    "dl.faq.q7": "如何反馈 Bug？",
+    "dl.faq.a7": "加入官方群 903815517，或在 GitHub Issues 提交。必要时请附上启动器日志。",
+
+    /* 更新日志 */
+    "log.badge": "CHANGELOG",
+    "log.title": "更新日志",
+    "log.sub": "XGMCL 从创世到 NT 架构的完整版本历史。",
+    "log.tag.latest": "最新",
+    "log.tag.origin": "创世",
+
+    "log.b02a.title": "纯 JS 架构 · 里程碑版本",
+    "log.b02a.1": "由 PY_JS 架构彻底转为纯 JS（Node.js + Electron）",
+    "log.b02a.2": "安装包体积从 460 MB 缩减到 130 MB",
+    "log.b02a.3": "启动时间从 16 秒优化到 8 秒，快 2 倍",
+    "log.b02a.4": "整合此前全部功能，作为 NT 架构的稳定基线",
+
+    "log.b01f.title": "Modrinth 全 API 打通 · 直接开服",
+    "log.b01f.1": "打通其余 Modrinth API（用户 / 项目 / 版本 / 依赖）",
+    "log.b01f.2": "服务器管理升级为「直接开服」，自动安装 Fabric 服务端",
+    "log.b01f.3": "新增插件下载功能",
+
+    "log.b01e.title": "服务器管理 · 下载任务 · 主题色",
+    "log.b01e.1": "添加「服务器管理」面板",
+    "log.b01e.2": "添加「下载任务」列表与进度显示",
+    "log.b01e.3": "添加「颜色选择」等 UI 外观选项",
+
+    "log.b01d.title": "LittleSkin · 浏览器主页 · Modrinth Mod",
+    "log.b01d.1": "增加 LittleSkin 账户登录",
+    "log.b01d.2": "增加浏览器主页（内置 WebView）",
+    "log.b01d.3": "打通 Modrinth 的 Mod 集成",
+
+    "log.b01c.title": "日志 · 主页内容 · 离线账户 · 关于",
+    "log.b01c.1": "添加「日志」查看器",
+    "log.b01c.2": "添加「主页内容设置」",
+    "log.b01c.3": "添加「离线账户」支持",
+    "log.b01c.4": "添加「关于」页面",
+    "log.b01c.5": "重新排版设置页",
+
+    "log.b01b.title": "重添加设置 · 界面设置",
+    "log.b01b.1": "重新添加「设置」页",
+    "log.b01b.2": "添加「界面设置」分类",
+
+    "log.b01a.title": "较为稳定的版本",
+    "log.b01a.1": "较为稳定的 PY_JS 版本",
+    "log.b01a.2": "修复若干 bug",
+
+    "log.a02a.title": "重构全部源代码 · 新架构",
+    "log.a02a.1": "重构全部源代码",
+    "log.a02a.2": "采用全新的 PY_JS 混合架构",
+
+    "log.a01b.title": "修复 bug · 添加「设置」",
+    "log.a01b.1": "修复若干 bug",
+    "log.a01b.2": "添加「设置」页",
+
+    "log.a01a.title": "项目创世 · 纯 Python 架构",
+    "log.a01a.1": "项目启动，采用纯 Python 架构",
+
+    /* 关于 */
+    "about.badge": "ABOUT",
+    "about.title": "关于 XGMCL",
+    "about.sub": "一个开源、现代化的 Minecraft 启动器，由个人开发者 XG 打造。",
+    "about.intro.title": "项目简介",
+    "about.intro.desc": "XGstudio Minecraft Launcher（简称 XGMCL）是一款基于 Electron + Node.js 构建的开源 Minecraft 启动器。项目采用全新 NT 架构，专注于提升启动速度、稳定性与用户体验。",
+    "about.status.title": "当前状态",
+    "about.status.desc": "Beta 公开测试版 —— 启动器仍在积极开发中，功能可能变动，可能存在 bug。欢迎通过 GitHub Issues 或官方 QQ 群反馈问题。",
+    "about.author.title": "作者",
+    "about.author.desc": "由 XG 独立开发与维护。",
+    "about.license.title": "开源协议",
+    "about.license.desc": "本项目采用 GNU Affero 通用公共许可证 v3.0。你可以自由使用、修改和分发本项目，但需保留相同许可证，并向网络用户提供源代码。",
+    "about.members.title": "XGstudio 成员",
+    "about.credits.title": "致谢",
+    "about.credits.1": "Mod 中文名数据来源于 <a href=\"https://github.com/Meloong-Git/PCL\" target=\"_blank\" rel=\"noopener\"><b>Plain Craft Launcher</b></a>（作者：龙腾猫跃）",
+    "about.credits.2": "感谢本项目依赖的所有开源库及其贡献者（详见 package.json）",
+    "about.credits.3": "感谢 <a href=\"https://github.com/mmmawa-114514\" target=\"_blank\" rel=\"noopener\"><b>mmmawa</b></a> 的 Bug 测试（先天 bug 圣体）",
+    "about.credits.4": "感谢 Xiao_yugg_ 的标题栏意见",
+    "about.credits.5": "感谢 Sodium雷雳 的标题栏意见",
+    "about.credits.6": "感谢 <a href=\"https://github.com/LJHs2\" target=\"_blank\" rel=\"noopener\"><b>LJH（CHLJH）</b></a> 提出的启动器颜色预设不清晰问题，目前已修改",
+    "about.credits.8": "感谢 <a href=\"https://github.com/LMZZ123456\" target=\"_blank\" rel=\"noopener\"><b>龙猫庄主LMZZ</b></a> 提供的服务器和功能意见",
+    "about.credits.7": "感谢全体官方群成员！",
+    "about.links.title": "相关链接",
+    "about.links.github": "查看源代码、提交 Issue 与 Pull Request",
+    "about.links.releases": "下载各版本发行包与源码包",
+    "about.links.qq.title": "官方 QQ 群",
+
+    /* 页脚 */
+    "footer.desc": "一个开源、现代化的 Minecraft 启动器。基于 Electron + Node.js，NT 架构带来更快更稳的体验。",
+    "footer.nav": "导航",
+    "footer.resources": "资源",
+    "footer.legal": "法律",
+    "footer.license": "开源协议"
+  },
+
+  "en-US": {
+    "app.title": "XGstudio Minecraft Launcher — Open Source · Modern · Fast",
+
+    "nav.home": "Home",
+    "nav.download": "Download",
+    "nav.changelog": "Changelog",
+    "nav.about": "About",
+
+    "hero.badge": "Beta Public Test",
+    "hero.title1": "Open source, modern",
+    "hero.title2": "Minecraft Launcher",
+    "hero.lead": "Built with Electron + Node.js by an independent developer, XG. The brand-new NT architecture delivers faster startup and higher stability.",
+    "hero.btnDownload": "Download Now",
+    "hero.btnSource": "View Source",
+    "hero.meta1": "Electron + Node.js",
+    "hero.meta2": "AGPLv3.0 Open Source",
+    "hero.meta3": "Windows x64",
+
+    "mock.version": "Game Version",
+    "mock.java": "Java Runtime",
+    "mock.ready": "Ready",
+    "mock.backend": "Backend Init",
+    "mock.account": "Account",
+    "mock.logged": "Signed In",
+
+    "features.badge": "FEATURES",
+    "features.title": "Built for Minecraft Players",
+    "features.sub": "Modern architecture, smooth experience, and open-source spirit — all for a better launch experience.",
+    "features.f1.title": "NT Architecture · Blazing Fast",
+    "features.f1.desc": "Backend fully migrated from Python to Node.js. Initialization dropped from ~16s to ~8s — 2x faster overall startup.",
+    "features.f2.title": "Modern Mod Loader Support",
+    "features.f2.desc": "Built-in Fabric / Quilt / NeoForge — three modern Mod Loaders. Automatically downloads and merges version JSON.",
+    "features.f3.title": "Multi-Source Concurrent Download",
+    "features.f3.desc": "Auto-switches between BMCLAPI mirror and official source. Supports resume, SHA1 verification, and multi-threaded download.",
+    "features.f4.title": "Multiple Account Types",
+    "features.f4.desc": "Supports offline accounts and LittleSkin device-code flow. Includes skin cropping and 3D skin preview.",
+    "features.f5.title": "All-in-One Mod Management",
+    "features.f5.desc": "Built-in Modrinth search, install, enable/disable, and batch delete. Supports dependency tree analysis and one-click upgrade.",
+    "features.f6.title": "Integrated Server & Terminal",
+    "features.f6.desc": "One-click Fabric server setup with visual config and plugin management, plus a multi-session built-in terminal.",
+    "features.f7.title": "Theme & UI Customization",
+    "features.f7.desc": "Theme color schemes, glass / liquid glass effects, dynamic wallpapers, and title bar styles — make it yours.",
+    "features.f8.title": "Multilingual & Logging",
+    "features.f8.desc": "Supports Chinese, English, German, French, Japanese and more (with easter eggs). Full launcher and game log viewer with compression.",
+
+    "nt.badge": "NT ARCHITECTURE",
+    "nt.title": "The All-New NT Architecture",
+    "nt.sub": "Transforming the original Python + JS XGstudioMinecraftLauncher into a faster, more stable NT architecture.",
+    "nt.p1": "Backend migrated from Python to Node.js; file count grew from 7 to 32",
+    "nt.p2": "Backend load time dropped from ~9s to nearly instant (0s)",
+    "nt.p3": "Backend call response shortened from ~3s to ~0.6s",
+    "nt.p4": "Tech stack cohesion improved from \"low (FastAPI)\" to \"very high\"",
+    "nt.th1": "Item",
+    "nt.th2": "Old Arch",
+    "nt.th3": "NT Arch",
+    "nt.r1": "Backend",
+    "nt.r2": "Backend Files",
+    "nt.r3": "Backend Load Time",
+    "nt.r4": "Backend Call Time",
+    "nt.r5": "Total Startup (Init)",
+    "nt.r6": "Tech Stack Cohesion",
+    "nt.r6a": "Low (FastAPI)",
+    "nt.r6b": "Very High",
+    "nt.speed": "🚀 Total startup time improved — 2x faster",
+
+    "shots.badge": "EFFECTS",
+    "shots.title": "Effects Preview",
+    "shots.sub": "A comparison of glass and liquid glass effects. The launcher ships with both styles and lets you switch anytime.",
+    "shots.hint": "Effects are rendered in real time via CSS backdrop-filter. Actual results may vary by GPU and OS.",
+    "fx.plain.name": "No Effect",
+    "fx.glass.name": "Glass",
+    "fx.liquid.name": "Liquid Glass",
+    "fx.liquidStrong.name": "Liquid Glass · Strong",
+    "fx.legend.plain": "No Effect",
+    "fx.legend.glass": "Glass",
+    "fx.legend.liquid": "Liquid Glass",
+
+    "stack.badge": "TECH STACK",
+    "stack.title": "Tech Stack",
+    "stack.sub": "Clear, modern, and highly cohesive tech choices.",
+    "stack.node.role": "Backend / Main Process",
+    "stack.electron.role": "Desktop Framework",
+    "stack.front.role": "Frontend UI",
+    "stack.builder.role": "Build Tool",
+
+    "home.dl.badge": "DOWNLOAD",
+    "home.dl.title": "Get Started with XGMCL",
+    "home.dl.sub": "Windows x64 · xg26b02b · Beta Public Test",
+    "home.dl.btn": "Download for Windows",
+    "home.dl.more": "See All Downloads",
+    "home.dl.note": "Having trouble downloading?",
+    "home.dl.noteLink": "Go to GitHub Releases",
+
+    "dl.badge": "DOWNLOAD",
+    "dl.title": "Download XGstudio Launcher",
+    "dl.sub": "Currently in Beta public test. Features may change. Please report issues on GitHub Issues.",
+    "dl.win.sub": "Windows 10 / 11 · x64",
+    "dl.src.name": "Source Code",
+    "dl.src.sub": "Full source package · AGPLv3.0",
+    "dl.note": "All versions are available on the",
+    "dl.note2": "page.",
+    "dl.sys.title": "System Requirements",
+    "dl.sys.sub": "Hardware and software needed to run XGMCL.",
+    "dl.sys.th1": "Item",
+    "dl.sys.th2": "Minimum",
+    "dl.sys.th3": "Recommended",
+    "dl.sys.os": "OS",
+    "dl.sys.os.v1": "Windows 10",
+    "dl.sys.os.v2": "Windows 10 or later",
+    "dl.sys.cpu": "CPU",
+    "dl.sys.cpu.v1": "Dual-core 1.6 GHz",
+    "dl.sys.cpu.v2": "Dual-core 2.9 GHz+",
+    "dl.sys.ram": "RAM",
+    "dl.sys.ram.v1": "4 GB DDR3",
+    "dl.sys.ram.v2": "8 GB DDR3+",
+    "dl.sys.disk": "Disk Space",
+    "dl.sys.disk.v1": "500 MB",
+    "dl.sys.disk.v2": "2 GB+ (single version)",
+    "dl.sys.java": "Java",
+    "dl.install.title": "Installation",
+    "dl.install.sub": "Three steps to start playing.",
+    "dl.install.s1.t": "1 · Download & Extract",
+    "dl.install.s1.d": "Download the Windows package and extract to any folder (avoid paths with non-ASCII characters or spaces).",
+    "dl.install.s2.t": "2 · Run the Launcher",
+    "dl.install.s2.d": "Double-click XGMCL.exe. Windows SmartScreen may appear on first run — choose \"Run anyway\".",
+    "dl.install.s3.t": "3 · Sign In & Download",
+    "dl.install.s3.d": "Add an offline or LittleSkin account, pick a version and download. Then launch the game.",
+    "dl.faq.badge": "FAQ",
+    "dl.faq.title": "Frequently Asked Questions",
+    "dl.faq.sub": "Having trouble? Check if your question is answered here first.",
+    "dl.faq.q1": "Why won't my game start?",
+    "dl.faq.a1": "You may not have Java installed, or its version is too old / too new; or you haven't added an account. Join the official group for help.",
+    "dl.faq.q2": "Why won't the launcher open?",
+    "dl.faq.a2": "Please check whether your environment meets the minimum requirements.",
+    "dl.faq.q3": "Java not found. What should I do?",
+    "dl.faq.a3": "Make sure you have installed a JRE or JDK. If it's a portable build, click \"Deep Scan Java\" on the Global Settings page.",
+    "dl.faq.q4": "Where are the launcher logs and config stored?",
+    "dl.faq.a4": "The XGMCL folder in the same directory stores config and logs (XGMCL/xgmcllog/); the .xgstudiomclauncher folder stores versions and mods you downloaded by default.",
+    "dl.faq.q5": "Downloads are too slow. What can I do?",
+    "dl.faq.a5": "Check the launcher log. If there are no errors, try switching the download source.",
+    "dl.faq.q6": "Which Mod Loaders are supported?",
+    "dl.faq.a6": "Modern Mod Loaders: Fabric, NeoForge, and Quilt. Please note that Forge is not supported.",
+    "dl.faq.q7": "How do I report a bug?",
+    "dl.faq.a7": "Join the official group 903815517, or submit an issue on GitHub. Please attach the launcher log if necessary.",
+
+    "log.badge": "CHANGELOG",
+    "log.title": "Changelog",
+    "log.sub": "The complete version history of XGMCL, from genesis to the NT architecture.",
+    "log.tag.latest": "Latest",
+    "log.tag.origin": "Origin",
+
+    "log.b02a.title": "Pure JS Architecture · Milestone",
+    "log.b02a.1": "Completely migrated from PY_JS to pure JS (Node.js + Electron)",
+    "log.b02a.2": "Package size reduced from 460 MB to 130 MB",
+    "log.b02a.3": "Startup time optimized from 16s to 8s — 2x faster",
+    "log.b02a.4": "Consolidated all previous features as the stable NT baseline",
+
+    "log.b01f.title": "Full Modrinth API · Direct Server Setup",
+    "log.b01f.1": "Integrated the remaining Modrinth APIs (users / projects / versions / dependencies)",
+    "log.b01f.2": "Server management upgraded to \"Direct Server Setup\" with automatic Fabric server install",
+    "log.b01f.3": "Added plugin download support",
+
+    "log.b01e.title": "Server Management · Download Tasks · Theme Colors",
+    "log.b01e.1": "Added \"Server Management\" panel",
+    "log.b01e.2": "Added \"Download Tasks\" list with progress display",
+    "log.b01e.3": "Added \"Color Picker\" and other UI appearance options",
+
+    "log.b01d.title": "LittleSkin · Browser Home · Modrinth Mods",
+    "log.b01d.1": "Added LittleSkin account login",
+    "log.b01d.2": "Added browser home page (built-in WebView)",
+    "log.b01d.3": "Integrated Modrinth Mod support",
+
+    "log.b01c.title": "Logs · Home Content · Offline Account · About",
+    "log.b01c.1": "Added \"Log\" viewer",
+    "log.b01c.2": "Added \"Home Content Settings\"",
+    "log.b01c.3": "Added \"Offline Account\" support",
+    "log.b01c.4": "Added \"About\" page",
+    "log.b01c.5": "Redesigned the settings page layout",
+
+    "log.b01b.title": "Re-added Settings · UI Settings",
+    "log.b01b.1": "Re-added \"Settings\" page",
+    "log.b01b.2": "Added \"UI Settings\" category",
+
+    "log.b01a.title": "A Fairly Stable Version",
+    "log.b01a.1": "A fairly stable PY_JS version",
+    "log.b01a.2": "Fixed several bugs",
+
+    "log.a02a.title": "Full Source Refactor · New Architecture",
+    "log.a02a.1": "Refactored the entire source code",
+    "log.a02a.2": "Adopted the new PY_JS hybrid architecture",
+
+    "log.a01b.title": "Bug Fixes · Added \"Settings\"",
+    "log.a01b.1": "Fixed several bugs",
+    "log.a01b.2": "Added \"Settings\" page",
+
+    "log.a01a.title": "Project Genesis · Pure Python Architecture",
+    "log.a01a.1": "Project launched with a pure Python architecture",
+
+    "about.badge": "ABOUT",
+    "about.title": "About XGMCL",
+    "about.sub": "An open-source, modern Minecraft launcher by an independent developer, XG.",
+    "about.intro.title": "Introduction",
+    "about.intro.desc": "XGstudio Minecraft Launcher (XGMCL) is an open-source Minecraft launcher built with Electron + Node.js. It adopts the new NT architecture, focusing on startup speed, stability, and user experience.",
+    "about.status.title": "Current Status",
+    "about.status.desc": "Beta public test — the launcher is under active development. Features may change and bugs may exist. Please report issues via GitHub Issues or the official QQ group.",
+    "about.author.title": "Author",
+    "about.author.desc": "Independently developed and maintained by XG.",
+    "about.license.title": "License",
+    "about.license.desc": "This project is licensed under the GNU Affero General Public License v3.0. You may freely use, modify, and distribute it, provided you keep the same license and offer source code to network users.",
+    "about.members.title": "XGstudio Members",
+    "about.credits.title": "Credits",
+    "about.credits.1": "Mod Chinese name data comes from <a href=\"https://github.com/Meloong-Git/PCL\" target=\"_blank\" rel=\"noopener\"><b>Plain Craft Launcher</b></a> (by 龙腾猫跃)",
+    "about.credits.2": "Thanks to all open-source libraries and their contributors this project depends on (see package.json)",
+    "about.credits.3": "Thanks to <a href=\"https://github.com/mmmawa-114514\" target=\"_blank\" rel=\"noopener\"><b>mmmawa</b></a> for bug testing",
+    "about.credits.4": "Thanks to Xiao_yugg_ for title bar feedback",
+    "about.credits.5": "Thanks to Sodium雷雳 for title bar feedback",
+    "about.credits.6": "Thanks to <a href=\"https://github.com/LJHs2\" target=\"_blank\" rel=\"noopener\"><b>LJH (CHLJH)</b></a> for pointing out the unclear launcher color presets — now fixed",
+    "about.credits.8": "Thanks to <a href=\"https://github.com/LMZZ123456\" target=\"_blank\" rel=\"noopener\"><b>龙猫庄主LMZZ</b></a> for providing the server and feature suggestions",
+    "about.credits.7": "Thanks to all members of the official group!",
+    "about.links.title": "Links",
+    "about.links.github": "View source, file issues and pull requests",
+    "about.links.releases": "Download release packages and source packages",
+    "about.links.qq.title": "Official QQ Group",
+
+    "footer.desc": "An open-source, modern Minecraft launcher. Built with Electron + Node.js and the NT architecture for a faster, more stable experience.",
+    "footer.nav": "Navigation",
+    "footer.resources": "Resources",
+    "footer.legal": "Legal",
+    "footer.license": "License"
+  }
+};
+
+/* ============================================================
+   2. i18n 引擎
+   ============================================================ */
+let currentLang = localStorage.getItem("xgmcl_site_lang") || "zh-CN";
+
+function applyI18n() {
+  const dict = I18N[currentLang] || I18N["zh-CN"];
+  document.documentElement.lang = currentLang;
+
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if (dict[key] !== undefined) {
+      el.textContent = dict[key];
+    } else if (I18N["zh-CN"][key] !== undefined) {
+      el.textContent = I18N["zh-CN"][key];
+    }
+  });
+
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    const key = el.getAttribute("data-i18n-html");
+    if (dict[key] !== undefined) {
+      el.innerHTML = dict[key];
+    } else if (I18N["zh-CN"][key] !== undefined) {
+      el.innerHTML = I18N["zh-CN"][key];
+    }
+  });
+
+  if (dict["app.title"]) document.title = dict["app.title"];
+
+  document.querySelectorAll(".lang-switch button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.lang === currentLang);
+  });
+}
+
+function setLang(lang) {
+  if (!I18N[lang]) return;
+  currentLang = lang;
+  localStorage.setItem("xgmcl_site_lang", lang);
+  document.body.classList.add("lang-switching");
+  applyI18n();
+  setTimeout(() => document.body.classList.remove("lang-switching"), 200);
+}
+
+document.querySelectorAll(".lang-switch button").forEach(btn => {
+  btn.addEventListener("click", () => setLang(btn.dataset.lang));
+});
+
+/* ============================================================
+   3. Hash 路由
+   ============================================================ */
+const ROUTES = ["home", "download", "changelog", "about"];
+
+function getRoute() {
+  const hash = location.hash || "#/home";
+  const name = hash.replace(/^#\//, "").split("?")[0];
+  return ROUTES.includes(name) ? name : "home";
+}
+
+function navigate() {
+  const route = getRoute();
+
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  const page = document.getElementById("page-" + route);
+  if (page) page.classList.add("active");
+
+  document.querySelectorAll(".nav-links a").forEach(a => {
+    a.classList.toggle("active", a.dataset.nav === route);
+  });
+
+  window.scrollTo({ top: 0, behavior: "instant" });
+
+  requestAnimationFrame(() => observeReveals());
+}
+
+window.addEventListener("hashchange", navigate);
+
+/* ============================================================
+   4. 滚动进场动画
+   ============================================================ */
+let revealObserver = null;
+
+function observeReveals() {
+  if (revealObserver) revealObserver.disconnect();
+
+  revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: "0px 0px -40px 0px" });
+
+  document.querySelectorAll(".page.active .reveal").forEach(el => {
+    el.classList.remove("visible");
+    revealObserver.observe(el);
+  });
+}
+
+/* ============================================================
+   5. 初始化
+   ============================================================ */
+(function init() {
+  applyI18n();
+  if (!location.hash) location.hash = "#/home";
+  navigate();
+
+  document.querySelectorAll('a[href^="#/"]').forEach(a => {
+    a.addEventListener("click", () => {
+      setTimeout(navigate, 10);
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
