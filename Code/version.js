@@ -109,19 +109,37 @@ function parseVersionInfo(verName, verDir) {
   };
 }
 
-// 扫描一个根目录下的所有版本
-function scanVersionsOfRoot(rootPath) {
+// 扫描一个根目录下的所有版本（异步版）
+async function scanVersionsOfRoot(rootPath) {
   const list = [];
   const verDir = path.join(rootPath, "versions");
   if (!fs.existsSync(verDir)) return list;
 
-  for (const name of fs.readdirSync(verDir)) {
+  let names;
+  try {
+    names = await fs.promises.readdir(verDir);
+  } catch (_) {
+    return list;
+  }
+
+  // 每处理 N 个版本，让出一次事件循环
+  const YIELD_EVERY = 20;
+  let sinceYield = 0;
+
+  for (const name of names) {
     const full = path.join(verDir, name);
     try {
-      if (fs.statSync(full).isDirectory()) {
+      const st = await fs.promises.stat(full);
+      if (st.isDirectory()) {
         list.push(parseVersionInfo(name, full));
       }
     } catch (_) {}
+
+    sinceYield++;
+    if (sinceYield >= YIELD_EVERY) {
+      sinceYield = 0;
+      await new Promise((r) => setImmediate(r));
+    }
   }
   return list;
 }
@@ -294,14 +312,72 @@ function buildClasspath(versionJson, libsRoot, clientJar) {
   return classpath;
 }
 
-// 解压 natives（跳过已存在的）
-function extractNatives(versionJson, libsRoot, nativesDir) {
-  const AdmZip = require("adm-zip");
-  fs.mkdirSync(nativesDir, { recursive: true });
+// 解压 natives（异步版，用 yauzl）
+async function extractNatives(versionJson, libsRoot, nativesDir) {
+  const yauzl = require("yauzl");
+  await fs.promises.mkdir(nativesDir, { recursive: true });
 
   let extracted = 0;
   let skipped = 0;
 
+  // 解压单个 zip 的回调包装成 Promise
+  function extractOneZip(jarPath) {
+    return new Promise((resolve) => {
+      yauzl.open(jarPath, { lazyEntries: true }, (err, zipfile) => {
+        if (err || !zipfile) {
+          console.warn(`[natives] 打开 ${jarPath} 失败:`, err && err.message);
+          return resolve();
+        }
+
+        zipfile.readEntry();
+
+        zipfile.on("entry", (entry) => {
+          const entryName = entry.fileName || "";
+
+          // 只看原生库
+          if (!/\.(dll|so|dylib)$/i.test(entryName)) {
+            return zipfile.readEntry();
+          }
+
+          const base = path.basename(entryName);
+          const target = path.join(nativesDir, base);
+
+          // 已存在 → 跳过
+          if (fs.existsSync(target)) {
+            skipped++;
+            return zipfile.readEntry();
+          }
+
+          zipfile.openReadStream(entry, (err2, readStream) => {
+            if (err2 || !readStream) {
+              return zipfile.readEntry();
+            }
+
+            const writeStream = fs.createWriteStream(target);
+            readStream.pipe(writeStream);
+
+            writeStream.on("close", () => {
+              extracted++;
+              zipfile.readEntry();
+            });
+
+            writeStream.on("error", (e) => {
+              console.warn(`[natives] 写 ${target} 失败:`, e.message);
+              zipfile.readEntry();
+            });
+          });
+        });
+
+        zipfile.on("end", () => resolve());
+        zipfile.on("error", (e) => {
+          console.warn(`[natives] 读 ${jarPath} 出错:`, e.message);
+          resolve();
+        });
+      });
+    });
+  }
+
+  // 遍历所有含 natives 的库
   for (const lib of versionJson.libraries || []) {
     const name = lib.name || "";
     if (!name.includes("natives") || !name.includes("windows")) continue;
@@ -309,23 +385,7 @@ function extractNatives(versionJson, libsRoot, nativesDir) {
     const jarPath = libToJarPath(lib, libsRoot);
     if (!jarPath || !fs.existsSync(jarPath)) continue;
 
-    try {
-      const zip = new AdmZip(jarPath);
-      for (const entry of zip.getEntries()) {
-        const entryName = entry.entryName;
-        if (!/\.(dll|so|dylib)$/i.test(entryName)) continue;
-
-        const target = path.join(nativesDir, path.basename(entryName));
-        if (fs.existsSync(target)) {
-          skipped++;
-          continue;
-        }
-        fs.writeFileSync(target, entry.getData());
-        extracted++;
-      }
-    } catch (e) {
-      console.warn(`[natives] 解压 ${jarPath} 失败:`, e.message);
-    }
+    await extractOneZip(jarPath);
   }
 
   if (extracted || skipped) {
