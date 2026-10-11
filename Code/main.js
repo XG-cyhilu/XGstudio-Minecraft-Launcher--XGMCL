@@ -1982,7 +1982,7 @@ async function accountRefreshToken(q) {
 
   try {
     const body = new URLSearchParams({
-      client_id: "1555",
+      client_id: "CLIENT_ID",
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     });
