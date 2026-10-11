@@ -32,6 +32,14 @@
 | 桌面框架 | Electron       |
 | 打包  | electron-builder     |
 
+```json
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "pack": "electron-builder --win --x64 --dir"
+  },
+```
+
 ---
 
 ## NT架构
