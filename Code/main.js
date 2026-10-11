@@ -42,6 +42,7 @@ const upversionMod = require("./upversion.js");
 const littleskinMod = require("./littleskin.js");
 const modpackMod = require("./modpack.js");
 const terminalMod = require("./terminal.js");
+const systeminfoMod = require("./systeminfo.js");
 const fabricInstallMod = require("./fabric_install.js");
 let mainWindow = null;
 
@@ -467,7 +468,7 @@ async function route(p, q, method, body) {
   if (p === "/roots/add") return await rootsAdd();
   if (p === "/roots/switch") return rootsSwitch(q.root_id || "");
   if (p === "/roots/remove") return rootsRemove(q.root_id || "");
-  if (p === "/roots/versions") return rootsVersions(q.root_id || "");
+  if (p === "/roots/versions") return await rootsVersions(q.root_id || "");
 
   // ---- 版本详情 / 配置 ----
   if (p === "/version/detail") return versionDetail(q.version_name || "", q.root_id || "");
@@ -476,7 +477,7 @@ async function route(p, q, method, body) {
   if (p === "/version/config/reset") return versionConfigReset(q);
   if (p === "/version/open_folder") return await versionOpenFolder(q);
   if (p === "/version/rename") return versionRename(q);
-  if (p === "/version/delete") return versionDelete(q);
+  if (p === "/version/delete") return await versionDelete(q);
   if (p === "/version/isolate/toggle") return versionIsolateToggle(q);
 
   // ---- LittleSkin ----
@@ -497,7 +498,7 @@ async function route(p, q, method, body) {
   if (p === "/modpack/pick_save") return await modpackPickSave(q);
 
   // ---- 版本 mods ----
-  if (p === "/version/mods/list") return versionModsList(q);
+  if (p === "/version/mods/list") return await versionModsList(q);
   if (p === "/version/mods/toggle") return versionModsToggle(q);
   if (p === "/version/mods/delete") return versionModsDelete(q);
   if (p === "/version/mods/open_folder") return await versionModsOpenFolder(q);
@@ -519,9 +520,9 @@ async function route(p, q, method, body) {
   if (p === "/game/last_launch") return gameLastLaunch();
 
   // ---- 游戏日志 ----
-  if (p === "/logs/tail") return logsTail(q);
-  if (p === "/logs/since") return logsSince(q);
-  if (p === "/logs/full") return logsFull(q);
+  if (p === "/logs/tail") return await logsTail(q);
+  if (p === "/logs/since") return await logsSince(q);
+  if (p === "/logs/full") return await logsFull(q);
   if (p === "/logs/open_folder") return await logsOpenFolder(q);
 
   // ---- 通用日志（其他 Tab）----
@@ -673,6 +674,8 @@ async function route(p, q, method, body) {
       return { code: 500, msg: "解析失败: " + e.message };
     }
   }
+
+  if (p === "/systeminfo/get") return await systeminfoMod.collectAll();
 
   if (p === "/open_external") {
     const url = q.url || "";
@@ -1150,7 +1153,7 @@ function appearanceSave(q) {
 
 // ---- 根目录 ----
 
-function rootsList() {
+async function rootsList() {
   const db = cfgMod.safeLoadJson(P.ROOTS_DB);
   const roots = db.roots || [];
   const activeId = db.active_id || "";
@@ -1158,7 +1161,12 @@ function rootsList() {
   for (const r of roots) {
     r.valid = verMod.checkRootValid(r.path || "");
     r.active = r.id === activeId;
-    r.version_count = r.valid ? verMod.scanVersionsOfRoot(r.path).length : 0;
+    if (r.valid) {
+      const list = await verMod.scanVersionsOfRoot(r.path);
+      r.version_count = list.length;
+    } else {
+      r.version_count = 0;
+    }
     // 内置目录标记（前端据此禁用"移除"按钮）
     r.builtin = Boolean(r.builtin);
   }
@@ -1233,13 +1241,13 @@ function rootsRemove(rootId) {
   return { code: 200, msg: "已移除" };
 }
 
-function rootsVersions(rootId) {
+async function rootsVersions(rootId) {
   const target = verMod.getRootById(rootId);
   if (!target) return { code: 400, msg: "没有可用的游戏目录", versions: [] };
   if (!verMod.checkRootValid(target.path)) return { code: 400, msg: "目录已失效", versions: [] };
 
   const rootPath = target.path;
-  const verList = verMod.scanVersionsOfRoot(rootPath);
+  const verList = await verMod.scanVersionsOfRoot(rootPath);
   const allCfg = cfgMod.safeLoadJson(P.VERSION_CFG);
 
   for (const v of verList) {
@@ -1446,7 +1454,7 @@ function versionRename(q) {
   }
 }
 
-function versionDelete(q) {
+async function versionDelete(q) {
   const target = verMod.getRootById(q.root_id || "");
   if (!target) return { code: 400, msg: "没有可用的游戏目录" };
   if (!verMod.checkRootValid(target.path)) return { code: 400, msg: "目录已失效" };
@@ -1464,7 +1472,7 @@ function versionDelete(q) {
     }
   }
 
-  const size = dirSize(verDir);
+  const size = await dirSize(verDir);
 
   try {
     fs.rmSync(verDir, { recursive: true, force: true });
@@ -1488,22 +1496,39 @@ function versionDelete(q) {
   return { code: 200, msg: "版本已删除", freed_bytes: size };
 }
 
-function dirSize(dir) {
+async function dirSize(dir) {
   let total = 0;
-  try {
-    const stack = [dir];
-    while (stack.length) {
-      const cur = stack.pop();
-      for (const name of fs.readdirSync(cur)) {
-        const full = path.join(cur, name);
-        try {
-          const st = fs.statSync(full);
-          if (st.isDirectory()) stack.push(full);
-          else total += st.size;
-        } catch (_) {}
+  const stack = [dir];
+
+  const YIELD_EVERY = 200;
+  let sinceYield = 0;
+
+  while (stack.length) {
+    const cur = stack.pop();
+
+    let names;
+    try {
+      names = await fs.promises.readdir(cur);
+    } catch (_) {
+      continue;
+    }
+
+    for (const name of names) {
+      const full = path.join(cur, name);
+      try {
+        const st = await fs.promises.stat(full);
+        if (st.isDirectory()) stack.push(full);
+        else total += st.size;
+      } catch (_) {}
+
+      sinceYield++;
+      if (sinceYield >= YIELD_EVERY) {
+        sinceYield = 0;
+        await new Promise((r) => setImmediate(r));
       }
     }
-  } catch (_) {}
+  }
+
   return total;
 }
 
@@ -1573,12 +1598,12 @@ function versionIsolateToggle(q) {
 
 // ---- 版本 mods ----
 
-function versionModsList(q) {
+async function versionModsList(q) {
   const target = verMod.getRootById(q.root_id || "");
   if (!target) return { code: 400, msg: "没有可用的游戏目录" };
   if (!verMod.checkRootValid(target.path)) return { code: 400, msg: "目录已失效" };
   try {
-    const r = modsMod.listMods(target.path, q.version_name || "");
+    const r = await modsMod.listMods(target.path, q.version_name || "");
     return { code: 200, ...r };
   } catch (e) {
     return { code: 500, msg: e.message };
@@ -1761,12 +1786,12 @@ function gameLastLaunch() {
 
 // ---- 游戏日志 ----
 
-function logsTail(q) {
+async function logsTail(q) {
   const target = verMod.getRootById(q.root_id || "");
   if (!target) return { code: 400, msg: "没有可用的游戏目录" };
   const logPath = logsMod.getLogPath(target.path, q.version_name || "");
   const n = parseInt(q.n || "20", 10) || 20;
-  const r = logsMod.readTailLines(logPath, n);
+  const r = await logsMod.readTailLines(logPath, n);
   if (r.err === "not_found") {
     return { code: 404, msg: "读取失败，请先启动游戏或检查路径是否存在", path: logPath };
   }
@@ -1774,24 +1799,24 @@ function logsTail(q) {
   return { code: 200, lines: r.lines, offset: r.offset, path: logPath };
 }
 
-function logsSince(q) {
+async function logsSince(q) {
   const target = verMod.getRootById(q.root_id || "");
   if (!target) return { code: 400, msg: "没有可用的游戏目录" };
   const logPath = logsMod.getLogPath(target.path, q.version_name || "");
   const offset = parseInt(q.offset || "0", 10) || 0;
   const maxLines = parseInt(q.max_lines || "500", 10) || 500;
-  const r = logsMod.readFromOffset(logPath, offset, maxLines);
+  const r = await logsMod.readFromOffset(logPath, offset, maxLines);
   if (r.err === "not_found") return { code: 404, msg: "日志文件不存在", path: logPath };
   if (r.err) return { code: 500, msg: `读取失败: ${r.err}` };
   return { code: 200, lines: r.lines, next_offset: r.next_offset, path: logPath };
 }
 
-function logsFull(q) {
+async function logsFull(q) {
   const target = verMod.getRootById(q.root_id || "");
   if (!target) return { code: 400, msg: "没有可用的游戏目录" };
   const logPath = logsMod.getLogPath(target.path, q.version_name || "");
   const maxLines = parseInt(q.max_lines || "10000", 10) || 10000;
-  const r = logsMod.readFullLog(logPath, maxLines);
+  const r = await logsMod.readFullLog(logPath, maxLines);
   if (r.err === "not_found") {
     return { code: 404, msg: "读取失败，请先启动游戏或检查路径是否存在", path: logPath };
   }
@@ -1957,7 +1982,7 @@ async function accountRefreshToken(q) {
 
   try {
     const body = new URLSearchParams({
-      client_id: "client_id",
+      client_id: "1555",
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     });
@@ -3877,6 +3902,15 @@ function createMainWindow(show) {
     },
   });
 
+  win.webContents.on("render-process-gone", (_e, details) => {
+    xgmclLog.writeLog("FATAL",
+      `[渲染进程] 崩溃: reason=${details.reason}, exitCode=${details.exitCode}`);
+  });
+
+  win.webContents.on("unresponsive", () => {
+    xgmclLog.writeLog("WARN", "[渲染进程] 无响应");
+  });
+
   // ★ 窗口焦点变化 → 通知渲染进程（mac 风格红绿灯失焦变灰用）
   win.on("focus", () => {
     if (!win.isDestroyed()) win.webContents.send("win:focus-changed", true);
@@ -4106,4 +4140,23 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   xgmclLog.writeLog("INFO", "启动器退出");
+});
+
+// ★ 主进程兜底：任何未捕获异常都写日志，别静默死
+process.on("uncaughtException", (err) => {
+  try {
+    xgmclLog.writeLog("FATAL", `[主进程] 未捕获异常: ${err.message}`);
+    xgmclLog.writeLog("FATAL", err.stack || "");
+  } catch (_) {}
+  console.error("[FATAL] 主进程未捕获异常:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  try {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    const stack = reason instanceof Error ? (reason.stack || "") : "";
+    xgmclLog.writeLog("FATAL", `[主进程] 未处理的 Promise 拒绝: ${msg}`);
+    if (stack) xgmclLog.writeLog("FATAL", stack);
+  } catch (_) {}
+  console.error("[FATAL] 主进程未处理拒绝:", reason);
 });
