@@ -32,6 +32,14 @@ Currently in **Beta**.
 | Desktop   | Electron                |
 | Packaging | electron-builder        |
 
+```json
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "pack": "electron-builder --win --x64 --dir"
+  }
+```
+
 ---
 
 ## NT Architecture
