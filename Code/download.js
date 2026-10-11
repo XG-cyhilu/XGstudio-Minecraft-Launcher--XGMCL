@@ -184,20 +184,15 @@ function reverseRewriteUrl(url) {
 
 // ---- SHA1 ----
 
+// 异步版：用 createReadStream，不阻塞主进程
 function computeSha1(filePath) {
-  const h = crypto.createHash("sha1");
-  const fd = fs.openSync(filePath, "r");
-  const buf = Buffer.alloc(65536);
-  try {
-    while (true) {
-      const n = fs.readSync(fd, buf, 0, buf.length, null);
-      if (n <= 0) break;
-      h.update(buf.slice(0, n));
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  return h.digest("hex");
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash("sha1");
+    const stream = fs.createReadStream(filePath, { highWaterMark: 1 << 20 }); // 1MB 块
+    stream.on("data", (chunk) => h.update(chunk));
+    stream.on("end", () => resolve(h.digest("hex")));
+    stream.on("error", reject);
+  });
 }
 
 // ---- 单文件下载 ----
@@ -232,24 +227,24 @@ async function downloadOneFile(fileInfo, baseSource = "bmclapi", maxRetries = 5,
   const temp = target + ".part";
 
   // 已存在且大小对 → 跳过
-  if (fs.existsSync(target)) {
-    try {
-      const st = fs.statSync(target);
-      if (expectedSize && st.size === expectedSize) {
-        if (important && sha1) {
-          if (computeSha1(target) === sha1) {
+    if (fs.existsSync(target)) {
+      try {
+        const st = fs.statSync(target);
+        if (expectedSize && st.size === expectedSize) {
+          if (important && sha1) {
+            if (await computeSha1(target) === sha1) {
+              xgmclLog.writeDownloadLog(`[跳过] ${relPath} (已存在)`);
+              markSkipped(taskId, expectedSize);
+              return { status: "skipped", bytes: expectedSize };
+            }
+          } else {
             xgmclLog.writeDownloadLog(`[跳过] ${relPath} (已存在)`);
             markSkipped(taskId, expectedSize);
             return { status: "skipped", bytes: expectedSize };
           }
-        } else {
-          xgmclLog.writeDownloadLog(`[跳过] ${relPath} (已存在)`);
-          markSkipped(taskId, expectedSize);
-          return { status: "skipped", bytes: expectedSize };
         }
-      }
-    } catch (_) {}
-  }
+      } catch (_) {}
+    }
 
   fs.mkdirSync(path.dirname(target), { recursive: true });
 
@@ -368,7 +363,7 @@ async function downloadOneFile(fileInfo, baseSource = "bmclapi", maxRetries = 5,
 
       // SHA1 校验
       if (important && sha1) {
-        const actual = computeSha1(temp);
+        const actual = await computeSha1(temp);
         if (actual !== sha1) {
           if (fs.existsSync(temp)) fs.unlinkSync(temp);
           throw new Error("SHA1 不符");
