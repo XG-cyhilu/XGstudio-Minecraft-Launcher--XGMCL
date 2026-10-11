@@ -39,12 +39,12 @@ function getLogPath(rootPath, versionName) {
 }
 
 // 读末尾 n 行，返回 {lines, offset, err}
-function readTailLines(filePath, n) {
+async function readTailLines(filePath, n) {
   if (!fs.existsSync(filePath)) {
     return { lines: [], offset: 0, err: "not_found" };
   }
   try {
-    const buf = fs.readFileSync(filePath);
+    const buf = await fs.promises.readFile(filePath);
     const text = buf.toString("utf-8");
     const lines = text.split(/\r?\n/);
     return {
@@ -58,39 +58,45 @@ function readTailLines(filePath, n) {
 }
 
 // 从 offset 开始读，返回 {lines, next_offset, err}
-function readFromOffset(filePath, offset, maxLines = 500) {
+async function readFromOffset(filePath, offset, maxLines = 500) {
   if (!fs.existsSync(filePath)) {
     return { lines: [], next_offset: offset, err: "not_found" };
   }
   try {
-    const st = fs.statSync(filePath);
+    const st = await fs.promises.stat(filePath);
     const curSize = st.size;
     if (curSize < offset) offset = 0;
 
-    const fd = fs.openSync(filePath, "r");
-    const bufSize = curSize - offset;
-    const buf = Buffer.alloc(bufSize);
-    fs.readSync(fd, buf, 0, bufSize, offset);
-    fs.closeSync(fd);
+    const fd = await fs.promises.open(filePath, "r");
+    try {
+      const bufSize = curSize - offset;
+      if (bufSize <= 0) {
+        return { lines: [], next_offset: curSize, err: null };
+      }
+      const buf = Buffer.alloc(bufSize);
+      await fd.read(buf, 0, bufSize, offset);
 
-    const text = buf.toString("utf-8");
-    let lines = text.split(/\r?\n/);
-    if (lines.length > maxLines) {
-      lines = lines.slice(-maxLines);
+      const text = buf.toString("utf-8");
+      let lines = text.split(/\r?\n/);
+      if (lines.length > maxLines) {
+        lines = lines.slice(-maxLines);
+      }
+      return { lines, next_offset: curSize, err: null };
+    } finally {
+      await fd.close();
     }
-    return { lines, next_offset: curSize, err: null };
   } catch (e) {
     return { lines: [], next_offset: offset, err: e.message };
   }
 }
 
 // 读整个文件，返回 {lines, size, total, truncated, err}
-function readFullLog(filePath, maxLines = 10000) {
+async function readFullLog(filePath, maxLines = 10000) {
   if (!fs.existsSync(filePath)) {
     return { lines: [], size: 0, total: 0, truncated: false, err: "not_found" };
   }
   try {
-    const buf = fs.readFileSync(filePath);
+    const buf = await fs.promises.readFile(filePath);
     const text = buf.toString("utf-8");
     let lines = text.split(/\r?\n/);
     const total = lines.length;
