@@ -136,6 +136,13 @@ function probeJava(exe) {
 async function scanRoot(root) {
   const stack = [root];
 
+  // 每扫 N 个目录，让出事件循环一次，避免主进程假死
+  const YIELD_EVERY = 20;
+  let sinceYield = 0;
+
+  // 用异步 readdir，不阻塞主进程
+  const readdirAsync = (p) => fs.promises.readdir(p, { withFileTypes: true });
+
   while (stack.length > 0) {
     if (SCAN_STATE.cancel) return;
 
@@ -145,7 +152,7 @@ async function scanRoot(root) {
 
     let entries;
     try {
-      entries = fs.readdirSync(cur, { withFileTypes: true });
+      entries = await readdirAsync(cur);
     } catch (_) {
       // 权限 / 文件被锁 / 路径太长，跳过
       continue;
@@ -177,6 +184,13 @@ async function scanRoot(root) {
           }
         }
       }
+    }
+
+    // 每扫 YIELD_EVERY 个目录，setImmediate 让出事件循环
+    sinceYield++;
+    if (sinceYield >= YIELD_EVERY) {
+      sinceYield = 0;
+      await new Promise((r) => setImmediate(r));
     }
   }
 }
@@ -231,6 +245,50 @@ function startDeepScan() {
       SCAN_STATE.done = true;
       SCAN_STATE.active = false;
       SCAN_STATE.end_time = Math.floor(Date.now() / 1000);
+
+      // ★ 把深扫结果合并进全局缓存（P.JAVA_CACHE）
+      try {
+        const P = require("./paths.js");
+        const cfgMod = require("./config.js");
+
+        // 读旧缓存
+        const old = cfgMod.safeLoadJson(P.JAVA_CACHE);
+        const oldList = (old && Array.isArray(old.list)) ? old.list : [];
+
+        // 合并：用 path 去重，深扫结果优先（保证版本信息最新）
+        const map = new Map();
+        for (const j of oldList) {
+          if (j && j.path) {
+            map.set(path.normalize(j.path).toLowerCase(), j);
+          }
+        }
+        for (const j of unique) {
+          if (j && j.path) {
+            map.set(path.normalize(j.path).toLowerCase(), j);
+          }
+        }
+
+        const merged = Array.from(map.values());
+
+        // 排序：major 降序 → vendor → path
+        merged.sort((a, b) => {
+          if (a.major !== b.major) return b.major - a.major;
+          if (a.vendor !== b.vendor) return String(a.vendor).localeCompare(String(b.vendor));
+          return String(a.path).localeCompare(String(b.path));
+        });
+
+        cfgMod.safeSaveJson(P.JAVA_CACHE, {
+          time: Math.floor(Date.now() / 1000),
+          list: merged,
+          deep_scan: true,     // ★ 标记这份缓存含深扫结果
+        });
+
+        xgmclLog.writeLog("INFO",
+          `[JavaScan] 深扫结果已写入缓存（合并后共 ${merged.length} 个 Java）`
+        );
+      } catch (e) {
+        xgmclLog.writeLog("ERROR", `[JavaScan] 写缓存失败: ${e.message}`);
+      }
 
       xgmclLog.writeLog("INFO",
         `[JavaScan] 扫描完成，共找到 ${unique.length} 个 Java，扫描 ${SCAN_STATE.dirs_scanned} 个目录`
