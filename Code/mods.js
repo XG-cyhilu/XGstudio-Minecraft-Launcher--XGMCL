@@ -140,8 +140,8 @@ function saveModCache(verDir, cache) {
   }
 }
 
-// 列表
-function listMods(rootPath, versionName) {
+// 列表（异步版）
+async function listMods(rootPath, versionName) {
   const wiki = modrinth.loadWikiEntries();
   const isolated = require("./config.js").getVersionIsolated(rootPath, versionName);
 
@@ -162,7 +162,18 @@ function listMods(rootPath, versionName) {
   const newCache = {};
   const mods = [];
 
-  for (const fn of fs.readdirSync(modsDir)) {
+  let names;
+  try {
+    names = await fs.promises.readdir(modsDir);
+  } catch (_) {
+    return { mods: [], mods_dir: modsDir, exists: false };
+  }
+
+  // 每处理 N 个 mod，让出一次事件循环，避免大整合包卡死
+  const YIELD_EVERY = 30;
+  let sinceYield = 0;
+
+  for (const fn of names) {
     let enabled;
     if (fn.endsWith(".jar.disabled")) enabled = false;
     else if (fn.endsWith(".jar")) enabled = true;
@@ -171,7 +182,7 @@ function listMods(rootPath, versionName) {
     const full = path.join(modsDir, fn);
     let st;
     try {
-      st = fs.statSync(full);
+      st = await fs.promises.stat(full);
       if (!st.isFile()) continue;
     } catch (_) { continue; }
 
@@ -185,7 +196,7 @@ function listMods(rootPath, versionName) {
       titleCn = cache[cacheKey].title_cn || "";
       // 老缓存没 slug：重读一次
       if (modId && !slug) {
-        const meta = readJarMeta(full);
+        const meta = readJarMeta(full);   // readJarMeta 内部是同步的，但只在"老缓存缺 slug"时走一次
         slug = meta.slug;
         mrUrl = meta.modrinth_url;
       }
@@ -214,6 +225,12 @@ function listMods(rootPath, versionName) {
       modrinth_url: mrUrl,
       title_cn: titleCn,
     });
+
+    sinceYield++;
+    if (sinceYield >= YIELD_EVERY) {
+      sinceYield = 0;
+      await new Promise((r) => setImmediate(r));
+    }
   }
 
   saveModCache(verDir, newCache);
@@ -436,21 +453,15 @@ function saveMeta(rootPath, versionName, metas) {
 async function autoWriteMetaAfterDownload(target) {
   if (!target || !fs.existsSync(target)) return;
 
-  // 算 SHA-512
+  // 算 SHA-512（异步）
   const crypto = require("crypto");
-  const h = crypto.createHash("sha512");
-  const fd = fs.openSync(target, "r");
-  const buf = Buffer.alloc(65536);
-  try {
-    while (true) {
-      const n = fs.readSync(fd, buf, 0, buf.length, null);
-      if (n <= 0) break;
-      h.update(buf.slice(0, n));
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  const sha512 = h.digest("hex");
+  const sha512 = await new Promise((resolve, reject) => {
+    const h = crypto.createHash("sha512");
+    const stream = fs.createReadStream(target, { highWaterMark: 1 << 20 });
+    stream.on("data", (chunk) => h.update(chunk));
+    stream.on("end", () => resolve(h.digest("hex")));
+    stream.on("error", reject);
+  });
 
   // 查 Modrinth
   let v;
