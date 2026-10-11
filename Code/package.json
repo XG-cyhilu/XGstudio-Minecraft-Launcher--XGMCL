@@ -13,9 +13,13 @@
     "adm-zip": "^0.5.16",
     "bcryptjs": "^2.4.3",
     "iconv-lite": "^0.6.3",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "systeminformation": "^5.33.15",
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.4",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3"
   },
@@ -36,6 +40,7 @@
       "paths.js",
       "config.js",
       "version.js",
+      "systeminfo.js",
       "fabric.js",
       "java_scan.js",
       "java_deep_scan.js",
