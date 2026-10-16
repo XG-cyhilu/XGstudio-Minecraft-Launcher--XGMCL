@@ -22,6 +22,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   winMaximize: () => ipcRenderer.invoke('win:maximize'),
   winClose: () => ipcRenderer.invoke('win:close'),
   winIsMaximized: () => ipcRenderer.invoke('win:is-maximized'),
+  winSetSkipTaskbar: (skip) => ipcRenderer.invoke('win:set-skip-taskbar', skip),
+  winSetFullscreen: (fs) => ipcRenderer.invoke('win:set-fullscreen', fs),
+
+  eggRead: () => ipcRenderer.invoke('egg:read'),
+  eggMarkDontClickSeen: () => ipcRenderer.invoke('egg:mark-dont-click-seen'),
+
+  bsodConfirm: () => ipcRenderer.invoke('bsod:confirm'),
+  bsodOpen: () => ipcRenderer.invoke('bsod:open'),
+  onBsodDone: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('bsod:done', handler);
+    return () => ipcRenderer.removeListener('bsod:done', handler);
+  },
 
   titlebarPickSvg: () => ipcRenderer.invoke('titlebar:pick_svg'),
   titlebarReadSvg: (p) => ipcRenderer.invoke('titlebar:read_svg', p),

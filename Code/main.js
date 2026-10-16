@@ -40,6 +40,7 @@ const avatarMod = require("./avatar.js");
 const javaDeepScanMod = require("./java_deep_scan.js");
 const upversionMod = require("./upversion.js");
 const littleskinMod = require("./littleskin.js");
+const themePackMod = require("./theme_pack.js");
 const modpackMod = require("./modpack.js");
 const terminalMod = require("./terminal.js");
 const systeminfoMod = require("./systeminfo.js");
@@ -217,6 +218,201 @@ ipcMain.handle("win:close", (e) => {
 ipcMain.handle("win:is-maximized", (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   return win ? win.isMaximized() : false;
+});
+
+// ★ 蓝屏彩蛋：隐藏/显示任务栏图标
+ipcMain.handle("win:set-skip-taskbar", (e, skip) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (win && !win.isDestroyed()) {
+    win.setSkipTaskbar(!!skip);
+  }
+});
+
+// ★ 蓝屏彩蛋：全屏 / 退出全屏
+ipcMain.handle("win:set-fullscreen", (e, fs) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (win && !win.isDestroyed()) {
+    win.setFullScreen(!!fs);
+  }
+});
+
+// ★ 彩蛋状态：读 m.json
+ipcMain.handle("egg:read", () => {
+  try {
+    const p = path.join(P.XGMCL_ROOT, "data", "m.json");
+    if (!fs.existsSync(p)) return { dont_click_seen: false };
+    const d = JSON.parse(fs.readFileSync(p, "utf-8"));
+    return (d && typeof d === "object") ? d : { dont_click_seen: false };
+  } catch (_) {
+    return { dont_click_seen: false };
+  }
+});
+
+// ★ 彩蛋状态：标记"千万别点"已触发过
+ipcMain.handle("egg:mark-dont-click-seen", () => {
+  try {
+    const p = path.join(P.XGMCL_ROOT, "data", "m.json");
+    let d = {};
+    try {
+      if (fs.existsSync(p)) {
+        d = JSON.parse(fs.readFileSync(p, "utf-8")) || {};
+      }
+    } catch (_) { d = {}; }
+
+    d.dont_click_seen = true;
+    if (!d.first_seen_time) d.first_seen_time = Math.floor(Date.now() / 1000);
+
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, JSON.stringify(d, null, 2), "utf-8");
+    return { code: 200, data: d };
+  } catch (e) {
+    xgmclLog.writeLog("ERROR", `写 m.json 失败: ${e.message}`);
+    return { code: 500, msg: e.message };
+  }
+});
+
+// ★ 千万别点：系统警告弹窗（返回 true=继续，false=取消）
+ipcMain.handle("bsod:confirm", async (e) => {
+  const parent = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showMessageBox(parent, {
+    type: "warning",
+    title: "System WARN",
+    message: "检测到潜在危险的系统操作",
+    detail:
+      "该操作可能导致系统崩溃，并造成未保存的数据丢失。\n" +
+      "您与 Microsoft 支持部门的会话已被记录。\n\n" +
+      "如果这不是您本人的操作，请立即点击「取消」。\n" +
+      "任何进一步的输入都将被报告给系统管理员。",
+    buttons: ["取消", "继续"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  return r.response === 1;
+});
+
+// ★ 蓝屏窗口：全局引用
+let bsodWindow = null;
+
+// ★ 蓝屏窗口：打开
+ipcMain.handle("bsod:open", async (e) => {
+  if (bsodWindow && !bsodWindow.isDestroyed()) {
+    bsodWindow.focus();
+    return { code: 200, msg: "已存在" };
+  }
+
+  bsodWindow = new BrowserWindow({
+    fullscreen: true,
+    kiosk: true,                // ★ 独占全屏，禁用 Alt+Tab / Win 键
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: "#007ad7",
+    autoHideMenuBar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: true,             // ★ 允许 close()，但用户按 Alt+F4 会被拦
+    icon: path.join(__dirname, "icon.png"),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "bs_preload.js"),
+    },
+  });
+
+  bsodWindow.setAlwaysOnTop(true, "screen-saver");
+
+  // ★ 拦掉用户手动关窗（Alt+F4 等）
+  //   只有 bsod:finish IPC 触发的 close() 才放行
+  bsodWindow.__allowClose = false;
+  bsodWindow.on("close", (e) => {
+    if (!bsodWindow.__allowClose) {
+      e.preventDefault();
+      xgmclLog.writeLog("INFO", "[bsod] 用户尝试关闭蓝屏窗口，已拦截");
+    }
+  });
+
+  bsodWindow.on("closed", () => {
+    bsodWindow = null;
+  });
+
+  // ★ 焦点丢失时抢回来（伪独占，让用户"切不走"）
+  bsodWindow.on("blur", () => {
+    if (!bsodWindow || bsodWindow.isDestroyed()) return;
+    if (bsodWindow.__allowClose) return;
+    setTimeout(() => {
+      if (bsodWindow && !bsodWindow.isDestroyed() && !bsodWindow.__allowClose) {
+        try {
+          bsodWindow.focus();
+          bsodWindow.moveTop();
+        } catch (_) {}
+      }
+    }, 100);
+  });
+
+  await bsodWindow.loadFile("bs.html");
+
+  // ★ 打开后立刻抢焦点 + 置顶（防止任务栏闪一下）
+  if (bsodWindow && !bsodWindow.isDestroyed()) {
+    try {
+      bsodWindow.focus();
+      bsodWindow.moveTop();
+    } catch (_) {}
+
+    // ★ 多抢几次，覆盖"系统还在切窗口"的过渡期
+    const focusTries = [50, 150, 300, 600, 1000];
+    for (const delay of focusTries) {
+      setTimeout(() => {
+        if (bsodWindow && !bsodWindow.isDestroyed() && !bsodWindow.__allowClose) {
+          try {
+            bsodWindow.focus();
+            bsodWindow.moveTop();
+          } catch (_) {}
+        }
+      }, delay);
+    }
+  }
+
+  return { code: 200 };
+});
+
+// ★ 蓝屏窗口：完成流程后关闭
+ipcMain.handle("bsod:finish", (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (win && !win.isDestroyed()) {
+    // ★ 通知主窗口：彩蛋结束
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("bsod:done");
+    }
+    // ★ 放行关闭
+    if (bsodWindow) bsodWindow.__allowClose = true;
+    win.close();
+  }
+  return { code: 200 };
+});
+
+// ★ 蓝屏窗口：同步准备关闭（阻止 blur 抢焦点）
+ipcMain.on("bsod:prepare-close", () => {
+  if (bsodWindow && !bsodWindow.isDestroyed()) {
+    bsodWindow.__allowClose = true;
+  }
+});
+
+// ★ 蓝屏窗口：Esc 强制退出
+ipcMain.handle("bsod:force-close", (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (win && !win.isDestroyed()) {
+    xgmclLog.writeLog("INFO", "[bsod] 用户按 Esc 强制退出");
+    if (bsodWindow) bsodWindow.__allowClose = true;
+    win.close();
+    // 通知主窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("bsod:done");
+    }
+  }
+  return { code: 200 };
 });
 
 // 选 SVG 文件
@@ -410,6 +606,8 @@ async function route(p, q, method, body) {
   }
   if (p === "/theme/export") return await themeExport(q);
   if (p === "/theme/import") return await themeImport();
+  if (p === "/theme/mode/get") return { code: 200, mode: cfgMod.getThemeMode() };
+  if (p === "/theme/mode/set") return themeModeSet(q);
   if (p === "/theme/list") return { code: 200, themes: cfgMod.listThemes(), active: cfgMod.getActiveThemeName() };
   if (p === "/theme/create") return themeCreate(q);
   if (p === "/theme/apply") return themeApply(q);
@@ -457,10 +655,9 @@ async function route(p, q, method, body) {
     if (!img || !fs.existsSync(img)) {
       return { code: 404, msg: "背景图不存在" };
     }
-    const buf = fs.readFileSync(img);
-    const ext = path.extname(img).slice(1).toLowerCase() || "png";
-    const mime = ext === "jpg" ? "jpeg" : ext;
-    return { code: 200, data_url: `data:image/${mime};base64,${buf.toString("base64")}` };
+    // ★ 不再读整张图返回 base64，只返回协议 URL
+    const url = `${P.BG_PROTOCOL}://local/${encodeURIComponent(img.replace(/\\/g, "/"))}`;
+    return { code: 200, data_url: url, is_protocol: true };
   }
 
   // ---- 根目录 ----
@@ -857,6 +1054,17 @@ function settingSave(q) {
   return { code: 200, msg: "全局设置保存成功", data };
 }
 
+function themeModeSet(q) {
+  const mode = (q.mode || "custom").trim();
+  if (!cfgMod.THEME_MODES.includes(mode)) {
+    return { code: 400, msg: `不支持的模式: ${mode}` };
+  }
+  cfgMod.setThemeMode(mode);
+  const theme = cfgMod.loadTheme();
+  xgmclLog.writeLog("INFO", `主题模式切换: ${mode}`);
+  return { code: 200, msg: "已切换", mode, data: theme };
+}
+
 function themeSave(q) {
   let parsed = {};
   try {
@@ -920,62 +1128,96 @@ function themeRename(q) {
 
 async function themeExport(q) {
   const name = (q && q.name) ? q.name.trim() : "";
-  const theme = name ? cfgMod.loadThemeByName(name) : cfgMod.loadTheme();
 
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  const defaultName = `${name || "xgmcl-theme"}-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.json`;
+  const defaultName = `${name || "xgmcl-theme"}-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xglt`;
 
-  const saved = await pickSaveFile("导出主题", defaultName, [
-    { name: "XGMCL 主题", extensions: ["json"] },
+  const saved = await pickSaveFile("导出主题包", defaultName, [
+    { name: "XGMCL 主题包", extensions: ["xglt"] },
     { name: "所有文件", extensions: ["*"] },
   ]);
   if (!saved) return { code: 400, msg: "用户取消" };
 
-  try {
-    fs.writeFileSync(saved, JSON.stringify(theme, null, 2), "utf-8");
-    xgmclLog.writeLog("INFO", `主题已导出: ${saved}`);
-    return { code: 200, msg: "导出成功", path: saved };
-  } catch (e) {
-    xgmclLog.writeLog("ERROR", `导出主题失败: ${e.message}`);
-    return { code: 500, msg: `导出失败: ${e.message}` };
-  }
+  return await themePackMod.exportThemePack(name || "theme", saved);
 }
 
 async function themeImport() {
-  const filePath = await pickFile("选择主题文件", [
-    { name: "XGMCL 主题", extensions: ["json"] },
+  const filePath = await pickFile("选择主题包", [
+    { name: "XGMCL 主题包", extensions: ["xglt", "json", "zip"] },
     { name: "所有文件", extensions: ["*"] },
   ]);
   if (!filePath) return { code: 400, msg: "用户取消" };
 
-  let raw;
-  try {
-    raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-  } catch (e) {
-    return { code: 400, msg: `文件不是合法 JSON: ${e.message}` };
+  const ext = path.extname(filePath).toLowerCase();
+
+  // ★ 老 .json 主题色文件：仍走老逻辑
+  if (ext === ".json") {
+    let raw;
+    try {
+      raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    } catch (e) {
+      return { code: 400, msg: `文件不是合法 JSON: ${e.message}` };
+    }
+    const merged = cfgMod.importTheme(raw);
+    if (!merged) return { code: 400, msg: "文件格式不对，或没有有效字段" };
+
+    let baseName = path.basename(filePath, ".json").replace(/\.xgmcltheme$/i, "");
+    if (!baseName) baseName = "导入的主题";
+
+    let finalName = baseName;
+    let n = 1;
+    while (cfgMod.themeFilePath(finalName) && fs.existsSync(cfgMod.themeFilePath(finalName))) {
+      finalName = `${baseName}-copy${n > 1 ? n : ""}`;
+      n++;
+      if (n > 100) break;
+    }
+    const r = cfgMod.createTheme(finalName, merged);
+    if (!r.ok) return { code: 500, msg: `创建方案失败: ${r.msg}` };
+    cfgMod.setActiveThemeName(finalName);
+    xgmclLog.writeLog("INFO", `旧版主题色已导入为方案: ${finalName}`);
+    return { code: 200, msg: `已导入为方案「${finalName}」`, data: merged, name: finalName };
   }
 
-  const merged = cfgMod.importTheme(raw);
-  if (!merged) return { code: 400, msg: "文件格式不对，或没有有效字段" };
+  // ★ .xglt / .zip：走主题包逻辑
+  // 重名则问用户
+  let baseName = path.basename(filePath).replace(/\.(xglt|zip)$/i, "") || "导入的主题";
+  baseName = baseName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
 
-  let baseName = path.basename(filePath, ".json").replace(/\.xgmcltheme$/i, "");
-  if (!baseName) baseName = "导入的主题";
-
+  const localDir = path.join(P.THEME_PACK_DIR, baseName);
   let finalName = baseName;
-  let n = 1;
-  while (cfgMod.themeFilePath(finalName) && fs.existsSync(cfgMod.themeFilePath(finalName))) {
-    finalName = `${baseName}-copy${n > 1 ? n : ""}`;
-    n++;
-    if (n > 100) break;
+
+  if (fs.existsSync(localDir)) {
+    const r = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "主题包重名",
+      message: `已存在主题「${baseName}」`,
+      detail: "选择处理方式：",
+      buttons: ["覆盖", "重命名", "取消"],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    });
+    if (r.response === 2) return { code: 400, msg: "用户取消" };
+    if (r.response === 1) {
+      const nv = await dialog.showInputBox
+        ? null
+        : null;
+      // Electron 无 showInputBox，走前端输入框；这里退化为自动加后缀
+      let n = 1;
+      while (fs.existsSync(path.join(P.THEME_PACK_DIR, `${baseName}-copy${n > 1 ? n : ""}`))) {
+        n++;
+        if (n > 100) break;
+      }
+      finalName = `${baseName}-copy${n > 1 ? n : ""}`;
+    }
+    // 覆盖：finalName 还是 baseName，后面 importThemePack 会清目录重写
+    if (r.response === 0) {
+      try { fs.rmSync(localDir, { recursive: true, force: true }); } catch (_) {}
+    }
   }
 
-  const r = cfgMod.createTheme(finalName, merged);
-  if (!r.ok) return { code: 500, msg: `创建方案失败: ${r.msg}` };
-
-  cfgMod.setActiveThemeName(finalName);
-  xgmclLog.writeLog("INFO", `主题已导入为方案: ${finalName}`);
-  return { code: 200, msg: `已导入为方案「${finalName}」`, data: merged, name: finalName };
+  return await themePackMod.importThemePack(filePath, finalName);
 }
 
 // 列出背景文件夹里的所有图片 / 视频（按文件名排序）
@@ -3899,6 +4141,7 @@ function createMainWindow(show) {
       nodeIntegration: false,
       webviewTag: true,
       preload: path.join(__dirname, "preload.js"),
+      devTools: true,
     },
   });
 
@@ -3984,26 +4227,57 @@ app.whenReady().then(async () => {
       const url = new URL(request.url);
       // xgmcl-bg://local/C:/xxx/yyy.mp4 → pathname = /C:/xxx/yyy.mp4
       let filePath = decodeURIComponent(url.pathname || "");
-      // 去掉开头的斜杠（Windows 盘符会被解析成 /C:/...）
-      if (/^\/[A-Za-z]:/.test(filePath)) filePath = filePath.slice(1);
-      // 安全检查：只允许已配置的壁纸目录 / 文件下的路径
+
+      // ★ 情况 1：带盘符的绝对路径（/C:/xxx）
+      if (/^\/[A-Za-z]:/.test(filePath)) {
+        filePath = filePath.slice(1);   // 去开头斜杠 → C:/xxx
+      }
+      // ★ 情况 2：不带盘符的相对路径（/XGMCL/data/...）→ 拼到 P.XGMCL_ROOT
+      else if (filePath.startsWith("/XGMCL/") || filePath.startsWith("/XGMCL\\")) {
+        const rel = filePath.replace(/^\/XGMCL\//, "").replace(/\//g, path.sep);
+        filePath = path.join(P.XGMCL_ROOT, rel);
+      }
       const cfg = cfgMod.loadAppearance();
       const src = cfg.bg_source || "";
-      if (!src) {
-        return new Response("no bg_source", { status: 404 });
+
+      // ★ 调试：打印路径对比
+      {
+        const _eggDir = path.normalize(path.join(P.XGMCL_ROOT, "data", "RXGMCL")).toLowerCase();
+        const _normFile = path.normalize(filePath).toLowerCase();
+        xgmclLog.writeLog("INFO", `[bg] 请求 filePath=${filePath}`);
+        xgmclLog.writeLog("INFO", `[bg] normFile=${_normFile}`);
+        xgmclLog.writeLog("INFO", `[bg] eggDir=${_eggDir}`);
+        xgmclLog.writeLog("INFO", `[bg] P.XGMCL_ROOT=${P.XGMCL_ROOT}`);
+        xgmclLog.writeLog("INFO", `[bg] 匹配=${_normFile.startsWith(_eggDir + path.sep)}`);
       }
+
       const normFile = path.normalize(filePath).toLowerCase();
-      const normSrc = path.normalize(src).toLowerCase();
-      // 单文件模式：必须等于 bg_source
-      // 文件夹模式：必须以 bg_source + sep 开头
-      const isSingle = (cfg.bg_mode === "single_video");
+
+      // ★ 彩蛋资源白名单：允许访问 XGMCL/data/RXGMCL/ 目录（不依赖 bg_source）
+      const eggDir = path.normalize(path.join(P.XGMCL_ROOT, "data", "RXGMCL")).toLowerCase();
+      const isEggFile = (normFile.startsWith(eggDir + path.sep) || normFile === eggDir);
+
       let allowed = false;
-      if (isSingle) {
-        allowed = (normFile === normSrc);
-      } else {
-        allowed = normFile.startsWith(normSrc + path.sep) ||
-                  normFile === normSrc;
+
+      if (isEggFile) {
+        allowed = true;
+      } else if (src) {
+        const normSrc = path.normalize(src).toLowerCase();
+        const isSingle = (cfg.bg_mode === "single_video");
+        if (isSingle) {
+          allowed = (normFile === normSrc);
+        } else {
+          allowed = normFile.startsWith(normSrc + path.sep) ||
+                    normFile === normSrc;
+        }
       }
+
+      // ★ 静态图：单独放行 global_bg_image 指向的那个文件
+      if (!allowed && cfg.global_bg_image) {
+        const normStatic = path.normalize(cfg.global_bg_image).toLowerCase();
+        allowed = (normFile === normStatic);
+      }
+
       if (!allowed) {
         xgmclLog.writeLog("WARN", `[bg] 拒绝越权访问: ${filePath}`);
         return new Response("forbidden", { status: 403 });
@@ -4062,7 +4336,13 @@ app.whenReady().then(async () => {
     hasShadow: false,
     skipTaskbar: false,
     icon: path.join(__dirname, "icon.png"),
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+    contextIsolation: true,
+    nodeIntegration: false,
+    webviewTag: true,
+    preload: path.join(__dirname, "preload.js"),
+    devTools: true,
+},
   });
   splashWin.loadFile("splash.html");
   console.log(`[TIME] +${Date.now() - T0}ms splash created`);

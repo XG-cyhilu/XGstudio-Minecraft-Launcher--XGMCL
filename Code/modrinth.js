@@ -29,9 +29,9 @@ const xgmclLog = require("./xgmcl_log.js");
 const API = "https://api.modrinth.com/v2";
 const UA = "XGstudio-XGMCL/2.0 (contact: xgstudio)";
 
-// OAuth 配置
-const CLIENT_ID = "CLIENT_ID";
-const CLIENT_SECRET = "CLIENT_SECRET";
+// OAuth 配置（从 core.py 抄来）
+const CLIENT_ID = "Q2MvCyx4";
+const CLIENT_SECRET = "2gqUqQriYHcuLiintULOByCKEyNr8cd0";
 const REDIRECT_URI = "http://127.0.0.1:8000/api/modrinth/oauth/callback";
 
 const OAUTH_AUTHORIZE = "https://modrinth.com/auth/authorize";

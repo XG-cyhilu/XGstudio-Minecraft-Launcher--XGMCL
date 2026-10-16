@@ -166,6 +166,45 @@ const DEFAULT_THEME = {
   danger_hover: "",
 };
 
+// ★ 主题模式：dark / light / custom
+const THEME_MODES = ["dark", "light", "custom"];
+
+// ★ 深色内置预设（= 现有默认）
+const DARK_PRESET = { ...DEFAULT_THEME };
+
+// ★ 浅色内置预设
+const LIGHT_PRESET = {
+  accent: "#0288D1",
+  accent2: "#dcdcdc",
+  danger: "#d32f2f",
+  bg: "#f4f5f7",
+  text: "#1f1f1f",
+  accent_hover: "",
+  accent2_hover: "",
+  danger_hover: "",
+};
+
+function getThemeMode() {
+  const data = safeLoadJson(P.COLOR_PATH);
+  let m = (data && typeof data.theme_mode === "string") ? data.theme_mode : "dark";
+  if (!THEME_MODES.includes(m)) m = "dark";
+  return m;
+}
+
+function setThemeMode(mode) {
+  if (!THEME_MODES.includes(mode)) mode = "custom";
+  const data = safeLoadJson(P.COLOR_PATH);
+  data.theme_mode = mode;
+  safeSaveJson(P.COLOR_PATH, data);
+  return mode;
+}
+
+// 读一份"内置预设"（深/浅），不动用户自定义
+function getPresetTheme(mode) {
+  if (mode === "light") return { ...LIGHT_PRESET };
+  return { ...DARK_PRESET };
+}
+
 function isValidHexColor(s) {
   if (s === "" || s === null || s === undefined) return true;
   if (typeof s !== "string") return false;
@@ -262,6 +301,14 @@ function loadThemeByName(name) {
 
 // 当前生效主题：优先 active_theme 方案，没有则默认
 function loadTheme() {
+  const mode = getThemeMode();
+
+  // ★ 深/浅模式：直接返回内置预设，忽略方案里存的自定义值
+  if (mode === "dark" || mode === "light") {
+    return getPresetTheme(mode);
+  }
+
+  // 自定义模式：走原来的方案逻辑
   const active = getActiveThemeName();
   return loadThemeByName(active);
 }
@@ -273,6 +320,12 @@ function saveTheme(theme) {
     for (const k of Object.keys(DEFAULT_THEME)) {
       if (typeof theme[k] === "string" && isValidHexColor(theme[k])) merged[k] = theme[k];
     }
+  }
+
+  // ★ 深/浅模式：用户改不动，直接忽略写入，避免污染预设
+  const mode = getThemeMode();
+  if (mode === "dark" || mode === "light") {
+    return getPresetTheme(mode);
   }
 
   const active = getActiveThemeName();
@@ -391,6 +444,49 @@ function loadAppearance() {
 
 function saveAppearance(cfg) {
   return safeSaveJson(P.APPEARANCE, cfg);
+}
+
+// ★ 主题包：收集"整套界面设置"（主题色 + 外观 + 壁纸 + 标题栏 + 导航栏 + 快捷栏）
+function collectUiSettingsForPack() {
+  const theme = loadTheme();
+  const mode = getThemeMode();
+  const appearance = loadAppearance();
+  return { theme, appearance, mode };
+}
+
+// ★ 主题包：把打包解出来的配置写回本地
+// pack.appearance 里的路径字段已是本地绝对路径
+function applyUiSettingsFromPack(pack) {
+  if (!pack) return false;
+
+  if (pack.theme && typeof pack.theme === "object") {
+    const merged = { ...DEFAULT_THEME };
+    for (const k of Object.keys(DEFAULT_THEME)) {
+      if (typeof pack.theme[k] === "string" && isValidHexColor(pack.theme[k])) {
+        merged[k] = pack.theme[k];
+      }
+    }
+    const active = getActiveThemeName();
+    if (active && active !== "默认") {
+      const fp = themeFilePath(active);
+      if (fp) safeSaveJson(fp, merged);
+    } else {
+      const data = safeLoadJson(P.COLOR_PATH);
+      Object.assign(data, merged);
+      safeSaveJson(P.COLOR_PATH, data);
+    }
+  }
+
+  if (pack.appearance && typeof pack.appearance === "object") {
+    const cur = loadAppearance();
+    const merged = { ...cur, ...pack.appearance };
+    saveAppearance(merged);
+  }
+
+  if (typeof pack.mode === "string" && THEME_MODES.includes(pack.mode)) {
+    setThemeMode(pack.mode);
+  }
+  return true;
 }
 
 // ---- 主页配置 ----
@@ -542,6 +638,14 @@ module.exports = {
   isValidHexColor,
   importTheme,
   getActiveThemeName,
+  getThemeMode,
+  setThemeMode,
+  getPresetTheme,
+  THEME_MODES,
+  DARK_PRESET,
+  LIGHT_PRESET,
+  collectUiSettingsForPack,
+  applyUiSettingsFromPack,
   setActiveThemeName,
   listThemes,
   createTheme,

@@ -25,7 +25,7 @@ const cfgMod = require("./config.js");
 const P = require("./paths.js");
 const xgmclLog = require("./xgmcl_log.js");
 
-const CLIENT_ID = "CLIENT_ID";
+const CLIENT_ID = "1555";
 const OAUTH_BASE = "https://open.littleskin.cn";
 const YGGDRASIL_BASE = "https://littleskin.cn/api/yggdrasil";
 

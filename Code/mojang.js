@@ -277,7 +277,7 @@ async function startDownload(rootPath, versionName, mcVersionId, mcVersionUrl, s
       try {
         const libsRoot = path.join(rootPath, "libraries");
         const nativesDir = path.join(versionDir, `${versionName}-natives`);
-        verMod.extractNatives(versionJson, libsRoot, nativesDir);
+        await verMod.extractNatives(versionJson, libsRoot, nativesDir);
       } catch (e) {
         console.log(`[WARN] natives 解压失败: ${e.message}`);
       }

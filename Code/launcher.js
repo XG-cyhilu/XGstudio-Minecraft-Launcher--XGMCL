@@ -182,7 +182,7 @@ async function launchGame(opts) {
     setStage("构建 classpath...", 45);
     const classpath = verMod.buildClasspath(vj, libsRoot, clientJar);
     setStage("解压 natives...", 65);
-    verMod.extractNatives(vj, libsRoot, nativesDir);
+    await verMod.extractNatives(vj, libsRoot, nativesDir);
     setStage("依赖库就绪", 80);
 
     // 强制中文

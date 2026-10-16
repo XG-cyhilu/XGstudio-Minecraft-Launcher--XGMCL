@@ -83,6 +83,8 @@ const P = {
   ACCOUNT_PATH: path.join(XGMCL_ROOT, "data", "xgmclp", "p.json"),
   // 主题色
   COLOR_PATH: path.join(XGMCL_ROOT, "data", "color.json"),
+  // ★ 主题包工作目录（每个主题一个子目录，存 CSS / 壁纸 / 原始包）
+  THEME_PACK_DIR: path.join(XGMCL_ROOT, "data", "XGMCLSFA"),
   // 头像缓存
   AVATAR_CACHE_DIR: path.join(XGMCL_ROOT, "data", "avatar_cache"),
   // 原版皮肤
