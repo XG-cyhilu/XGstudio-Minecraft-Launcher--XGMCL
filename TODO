@@ -34,3 +34,12 @@ rust部分已经替换完毕，但新前端还没有适配
 但，目前主力开发还会是xgmcl，而且我在设计新的xgmcl的logo，有啥想法加QQ群或Issues
 所以期待全新的xgmcl前端吧awa
                 ——XG 2026.11.7,Sat
+
+换了个版本的npm仍然装不上库TvT
+node版本仍然还是原来的v24.21.0
+换pnpm终于装上了TvT
+好吧现在全面投向pnpm
+现在用的Electron 30.5.1
+不过Vite和Vue、React啥的我是永远不会用
+不只是不想用，我这小脑瓜子也用不明白TvT
+                ——XG 2026.11.7,Sat
